@@ -1,0 +1,77 @@
+.container {
+  flex: 1;
+  padding: 32px 48px;
+  overflow-y: auto;
+  max-width: 600px;
+}
+
+.container h1 {
+  margin-bottom: 32px;
+}
+
+.section {
+  margin-bottom: 32px;
+}
+
+.section h2 {
+  margin-bottom: 8px;
+}
+
+.hint {
+  font-size: 13px;
+  color: var(--color-on-surface-muted);
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+
+.hint code {
+  background: var(--color-surface-muted);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+}
+
+.field {
+  margin-bottom: 12px;
+}
+
+.field label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 4px;
+  color: var(--color-on-surface-muted);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.status {
+  margin-bottom: 12px;
+  font-size: 13px;
+}
+
+.statusOk {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #2d8a4e;
+}
+
+.statusErr {
+  color: var(--color-error);
+}
+
+.spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

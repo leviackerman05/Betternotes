@@ -1,0 +1,34 @@
+# Dependencies
+node_modules/
+
+# Build
+dist/
+src-tauri/target/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env
+.env
+.env.local
+
+# Logs
+*.log
+npm-debug.log*
+
+# Tauri
+src-tauri/gen/
+
+# Local cargo cache (if used)
+.cargo/
+.cargo-home/
+
+# Vendor patches (local build workaround only)
+src-tauri/vendor/
