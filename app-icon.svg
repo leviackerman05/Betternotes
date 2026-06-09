@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- Transparent canvas: the visible icon is inset so it matches normal Dock icon size. -->
+  <defs>
+    <linearGradient id="paper" x1="160" y1="128" x2="864" y2="896" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFDF8"/>
+      <stop offset="1" stop-color="#EFE7D8"/>
+    </linearGradient>
+  </defs>
+
+  <!-- macOS-style rounded tile, intentionally smaller than the full 1024 canvas. -->
+  <rect x="104" y="104" width="816" height="816" rx="184" fill="url(#paper)"/>
+
+  <!-- Large enough to read, but still inside the inset tile safe area. -->
+  <g transform="translate(512 520)">
+    <line x1="-218" y1="-126" x2="82" y2="-126" stroke="#E34432" stroke-width="42" stroke-linecap="round"/>
+    <line x1="-218" y1="-12" x2="32" y2="-12" stroke="#C9C1B6" stroke-width="36" stroke-linecap="round"/>
+    <path d="M -218 104 Q -134 66, -54 104" fill="none" stroke="#D8D0C4" stroke-width="36" stroke-linecap="round"/>
+
+    <g transform="translate(196 86) rotate(-46)">
+      <rect x="-31" y="-278" width="62" height="452" rx="31" fill="#25221E"/>
+      <rect x="-24" y="-278" width="48" height="88" rx="24" fill="#FFFDF8"/>
+      <path d="M -20 174 L 0 232 L 20 174 Z" fill="#25221E"/>
+    </g>
+  </g>
+</svg>

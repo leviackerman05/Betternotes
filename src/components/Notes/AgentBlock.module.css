@@ -9,10 +9,35 @@
 .header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
   padding: 10px 14px;
   border-bottom: 1px solid var(--color-border);
   background: var(--color-surface);
+}
+
+.headerTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.removeBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  color: var(--color-on-surface-muted);
+  transition: background var(--transition), color var(--transition);
+}
+
+.removeBtn:hover {
+  background: var(--color-surface-muted);
+  color: var(--color-on-surface);
 }
 
 .badge {
@@ -31,25 +56,60 @@
   overflow-y: auto;
 }
 
-.message {
-  margin-bottom: 12px;
+.userQuery {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-on-surface);
+  margin: 0 0 8px;
 }
 
-.role {
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  color: var(--color-on-surface-muted);
-  display: block;
-  margin-bottom: 4px;
-}
-
-.content {
-  font-family: var(--font-body);
+.assistant {
   font-size: 14px;
+  line-height: 1.5;
+  color: var(--color-on-surface);
+  margin: 0 0 10px;
+  white-space: pre-wrap;
+}
+
+.toolResult {
+  margin: 0 0 8px;
+  padding: 8px 10px;
+  font-size: 11px;
+  line-height: 1.4;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  color: var(--color-on-surface-muted);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
   white-space: pre-wrap;
   word-break: break-word;
-  margin: 0;
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.ticketList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ticketLink {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-primary);
+  text-decoration: none;
+  transition: background var(--transition), border-color var(--transition);
+}
+
+.ticketLink:hover {
+  background: var(--color-primary-20);
+  border-color: var(--color-primary);
 }
 
 .addTaskBtn {
@@ -65,9 +125,25 @@
 .loading {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   color: var(--color-on-surface-muted);
   font-size: 13px;
+}
+
+.cancelBtn {
+  padding: 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-on-surface-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.cancelBtn:hover {
+  color: var(--color-on-surface);
 }
 
 .spinner {
@@ -83,6 +159,13 @@
 .error {
   color: var(--color-error);
   font-size: 13px;
+}
+
+.hint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--color-on-surface-muted);
 }
 
 .inputRow {

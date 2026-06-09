@@ -7,17 +7,17 @@ export function useKeyboard() {
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+      if ((e.metaKey || e.ctrlKey) && e.key === "f") {
         e.preventDefault();
         setCommandPaletteOpen(true);
       }
+      if ((e.metaKey || e.ctrlKey) && e.key === "n") {
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent("betternote:quick-capture"));
+      }
       if (e.key === "g" && !e.metaKey && !e.ctrlKey) {
-        // Simple go-to shortcuts: g then i/t/u/n/s
         const goHandler = (ev: KeyboardEvent) => {
           const map: Record<string, () => void> = {
-            i: () => setView("inbox"),
-            t: () => setView("today"),
-            u: () => setView("upcoming"),
             n: () => setView("notes"),
             s: () => setView("settings"),
           };

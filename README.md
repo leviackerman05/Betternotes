@@ -1,21 +1,24 @@
-# BetterNotes
+# Betternote
 
-A local-first desktop app for Mac and Windows that combines:
+A **local-first notes app for developers** on macOS. Fast editor, wiki links, backlinks, quick capture, and privacy controls, with optional local AI and integrations.
 
-- **Minimal todo list** — Inbox, Today, and Upcoming views with natural-language quick add
-- **Apple Notes-style notes** — folders, rich-text editor, slash commands
-- **Jira integration via MCP** — type `/jira` in a note to chat with your tickets using a local LLM
+No backend. No login. Your notes stay on your machine.
 
-No backend. No login. All data stays on your machine.
+## Download
 
-## Prerequisites
+Get the latest macOS build from [GitHub Releases](https://github.com/leviackerman05/Betternotes/releases).
 
-1. **Node.js** (v18+) and npm
-2. **Rust** — install via [rustup](https://rustup.rs)
-3. **Ollama** — install from [ollama.com](https://ollama.com), then pull a tool-calling model:
-   ```bash
-   ollama pull qwen2.5:7b
-   ```
+> **Note:** Early releases may be unsigned. On first open, right-click the app → Open, or allow in System Settings → Privacy & Security.
+
+## Features
+
+- **Local notes**: workspaces, rich editor, tags, reminders, lock, export
+- **Wiki links & backlinks**: `[[Note title]]` linking between notes
+- **Quick capture**: `⌘N` or command palette (`⌘F`)
+- **Search**: find notes by title or content
+- **Privacy first**: Local Only Mode blocks all network integrations by default
+- **Optional Local AI**: Ollama for summarize, rewrite, extract tasks, explain (opt-in)
+- **Optional integrations**: Jira, generic MCP, GitHub/Linear (coming soon)
 
 ## Development
 
@@ -24,31 +27,43 @@ npm install
 npm run tauri dev
 ```
 
+For correct Dock icon sizing during dev:
+
+```bash
+npm run dev:app
+```
+
 ## Building
 
 ```bash
 npm run tauri build
 ```
 
-## Jira Setup
+Produces a `.dmg` in `src-tauri/target/release/bundle/macos/`.
 
-1. Open **Settings** in the app
-2. Enter your Jira site URL, email, and API token
-3. Credentials are stored in your OS keychain
-4. The default MCP server config uses `npx @anthropic/mcp-server-jira`
+## Optional: Local AI (Ollama)
 
-In any note, type `/` and select **Jira agent** to start chatting with your tickets.
+1. Install [Ollama](https://ollama.com)
+2. Pull a model: `ollama pull qwen2.5:7b`
+3. In Settings → disable **Local Only Mode**
+4. Enable **Local AI (Ollama)**
+
+## Optional: Jira
+
+1. Disable **Local Only Mode** in Settings
+2. Enable **Jira** integration
+3. Add your Atlassian site URL, email, API token, and default project key
+4. Use `/ticket` slash commands in notes (when enabled)
 
 ## Keyboard Shortcuts
 
 | Shortcut | Action |
 |----------|--------|
-| `⌘K` | Command palette |
-| `G` then `I` | Go to Inbox |
-| `G` then `T` | Go to Today |
-| `G` then `U` | Go to Upcoming |
+| `⌘F` | Search notes & commands |
+| `⌘N` | Quick capture: new note |
 | `G` then `N` | Go to Notes |
 | `G` then `S` | Go to Settings |
+| `/` | Slash commands in editor |
 
 ## Tech Stack
 
@@ -56,9 +71,11 @@ In any note, type `/` and select **Jira agent** to start chatting with your tick
 - **React + TypeScript + Vite**
 - **SQLite** (local storage)
 - **TipTap** (rich-text editor)
-- **Ollama** (local LLM)
-- **MCP** (Jira server via stdio)
+- **Ollama** (optional local LLM)
+- **MCP** (optional generic connector)
 
-## Design
+## Privacy
 
-Styled with the "Calm Clarity" design system — warm neutral canvas, coral accents, Graphik/Manrope headlines, Inter body text.
+- All notes and settings stored locally on your machine (path shown in Settings → Privacy)
+- **Local Only Mode** is on by default. No outbound network calls.
+- Integrations require explicit opt-in in Settings

@@ -1,0 +1,175 @@
+.picker {
+  position: fixed;
+  z-index: 50;
+  width: min(440px, calc(100vw - 24px));
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--panel-radius);
+  box-shadow: var(--shadow-lg);
+  padding: 8px;
+}
+
+.title {
+  margin: 0 4px 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-on-surface-muted);
+}
+
+.hint {
+  margin: -2px 4px 6px;
+  font-size: 11px;
+  color: var(--color-on-surface-muted);
+}
+
+.inputRow {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.input {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--control-radius);
+  background: var(--color-surface);
+  font-size: 14px;
+  outline: none;
+  transition: border-color var(--transition);
+}
+
+.searchBtn {
+  flex-shrink: 0;
+  padding: 8px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--control-radius);
+  background: var(--color-surface-muted);
+  color: var(--color-on-surface);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background var(--transition), border-color var(--transition);
+}
+
+.searchBtn:hover:not(:disabled) {
+  background: var(--color-border);
+  border-color: var(--color-on-surface-muted);
+}
+
+.searchBtn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.input:focus {
+  border-color: var(--color-on-surface-muted);
+}
+
+.list {
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: var(--control-radius);
+}
+
+.item:hover,
+.itemActive {
+  background: var(--color-surface-muted);
+}
+
+.itemSelected {
+  background: var(--color-surface-muted);
+}
+
+.itemMain {
+  display: grid;
+  grid-template-columns: auto auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  font-size: 13px;
+  min-width: 0;
+}
+
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.key {
+  font-weight: 700;
+  color: var(--color-primary);
+  flex-shrink: 0;
+}
+
+.summary {
+  color: var(--color-on-surface);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.status {
+  font-size: 11px;
+  color: var(--color-on-surface-muted);
+  flex-shrink: 0;
+}
+
+.detailBtn {
+  flex-shrink: 0;
+  padding: 4px 8px;
+  margin-right: 6px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: transparent;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-on-surface-muted);
+  cursor: pointer;
+  transition: border-color var(--transition), color var(--transition);
+}
+
+.detailBtn:hover {
+  border-color: var(--color-on-surface-muted);
+  color: var(--color-on-surface);
+}
+
+.empty {
+  padding: 12px 12px;
+  margin: 0;
+  font-size: 13px;
+  color: var(--color-on-surface-muted);
+}
+
+.insertBtn {
+  width: 100%;
+  margin-top: 6px;
+  padding: 9px 12px;
+  border: none;
+  border-radius: var(--control-radius);
+  background: var(--color-on-surface);
+  color: var(--color-surface);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity var(--transition);
+}
+
+.insertBtn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

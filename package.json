@@ -7,12 +7,20 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "icon:sync": "npx tauri icon app-icon.svg && cp src-tauri/icons/icon.png public/icon.png && cd src-tauri && cargo build && cd .. && bash scripts/sync-dev-app-bundle.sh",
+    "dev:app": "bash scripts/run-dev-app.sh",
+    "release:mac": "npm run build && npm run tauri build"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.4.0",
+    "@tauri-apps/plugin-notification": "^2.3.3",
+    "@tauri-apps/plugin-opener": "^2.5.4",
     "@tauri-apps/plugin-sql": "^2.2.0",
+    "@tiptap/extension-link": "^2.27.2",
     "@tiptap/extension-placeholder": "^2.11.5",
+    "@tiptap/extension-task-item": "^2.27.2",
+    "@tiptap/extension-task-list": "^2.27.2",
     "@tiptap/pm": "^2.11.5",
     "@tiptap/react": "^2.11.5",
     "@tiptap/starter-kit": "^2.11.5",

@@ -1,0 +1,68 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid color-mix(in srgb, var(--color-border) 80%, transparent);
+  border-radius: var(--control-radius);
+  overflow: hidden;
+  background: var(--color-surface);
+}
+
+.item + .item {
+  border-top: 1px solid var(--color-border);
+}
+
+.trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 11px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-on-surface);
+  text-align: left;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background var(--transition);
+}
+
+.trigger:hover {
+  background: var(--color-surface-muted);
+}
+
+.triggerTitle {
+  flex: 1;
+  min-width: 0;
+}
+
+.chevron {
+  flex-shrink: 0;
+  color: var(--color-on-surface-muted);
+  transition: transform var(--transition);
+}
+
+.itemOpen .chevron {
+  transform: rotate(180deg);
+}
+
+.content {
+  padding: 0 14px 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--color-on-surface-muted);
+}
+
+.content p {
+  margin: 0;
+}
+
+.content ul {
+  margin: 0;
+  padding-left: 16px;
+}
+
+.content li + li {
+  margin-top: 4px;
+}

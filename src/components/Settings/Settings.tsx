@@ -1,9 +1,80 @@
-import { useEffect, useState } from "react";
-import { Check, Loader2, Trash2 } from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
+import {
+  Check,
+  ChevronDown,
+  ChevronUp,
+  Cpu,
+  ExternalLink,
+  Loader2,
+  Moon,
+  Settings2,
+  Shield,
+  Sun,
+  Trash2,
+} from "lucide-react";
+import clsx from "clsx";
 import { api } from "../../lib/api";
+import { withDefaultIntegrations } from "../../lib/integrations";
 import { useAppStore } from "../../store/appStore";
 import type { JiraCredentials, McpServerConfig } from "../../types";
+import {
+  AnthropicIcon,
+  GitHubIcon,
+  GoogleSheetsIcon,
+  HacknPlanIcon,
+  JiraIcon,
+  LinearIcon,
+  NotionIcon,
+  OllamaIcon,
+  OpenAIIcon,
+  TrelloIcon,
+} from "./IntegrationIcons";
+import { IntegrationSetupInline } from "./IntegrationSetupInline";
 import styles from "./Settings.module.css";
+
+type ExpandPanel = "ollama" | "mcp" | "jira" | null;
+
+interface ComingSoonRowProps {
+  icon: ReactNode;
+  title: string;
+  description: string;
+}
+
+function IntegrationConfigSection({
+  children,
+  hint,
+}: {
+  children: ReactNode;
+  hint?: string;
+}) {
+  return (
+    <section className={styles.configZone} aria-label="Configuration">
+      <header className={styles.configHeader}>
+        <Settings2 size={14} className={styles.configHeaderIcon} />
+        <div>
+          <p className={styles.configLabel}>Configuration</p>
+          {hint && <p className={styles.configHint}>{hint}</p>}
+        </div>
+      </header>
+      <div className={styles.configBody}>{children}</div>
+    </section>
+  );
+}
+
+function ComingSoonRow({ icon, title, description }: ComingSoonRowProps) {
+  return (
+    <div className={clsx(styles.row, styles.rowDisabled)}>
+      <div className={clsx(styles.rowIcon, styles.rowIconBrand)}>{icon}</div>
+      <div className={styles.rowBody}>
+        <p className={styles.rowTitle}>{title}</p>
+        <p className={styles.rowDesc}>{description}</p>
+      </div>
+      <div className={styles.rowActions}>
+        <span className={styles.badgeSoon}>Coming soon</span>
+      </div>
+    </div>
+  );
+}
 
 export function Settings() {
   const settings = useAppStore((s) => s.settings);
@@ -15,37 +86,92 @@ export function Settings() {
     api_token: "",
   });
   const [mcpConfig, setMcpConfig] = useState<McpServerConfig>({
-    command: "npx",
-    args: ["-y", "@anthropic/mcp-server-jira"],
+    command: "",
+    args: [],
     env: {},
   });
+  const [dataDir, setDataDir] = useState("");
   const [ollamaStatus, setOllamaStatus] = useState<{
     available: boolean;
     models: string[];
   } | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<ExpandPanel>(null);
+
+  const s = withDefaultIntegrations(settings);
+  const locked = s.local_only_mode;
 
   useEffect(() => {
+    api.getDataDir().then(setDataDir).catch(() => {});
     api.getJiraCredentials().then((creds) => {
       if (creds) setJira(creds);
     });
-    api.getMcpConfig().then(setMcpConfig).catch(() => {});
+    if (s.mcp_enabled && !locked) {
+      api.getMcpConfig().then(setMcpConfig).catch(() => {});
+    }
+    if (s.local_ai_enabled && !locked) {
+      api.checkOllama().then(setOllamaStatus).catch(() =>
+        setOllamaStatus({ available: false, models: [] })
+      );
+    }
+  }, [s.local_ai_enabled, locked, s.mcp_enabled]);
+
+  const update = (patch: Partial<typeof settings>) => {
+    setSettings(withDefaultIntegrations({ ...settings, ...patch }));
+  };
+
+  const connectIntegration = (
+    key: "local_ai_enabled" | "mcp_enabled" | "jira_enabled",
+    panel: ExpandPanel
+  ) => {
+    if (locked) return;
+    if (!s[key]) update({ [key]: true });
+    setExpanded(panel);
+  };
+
+  const toggleExpand = (panel: ExpandPanel) => {
+    setExpanded((cur) => (cur === panel ? null : panel));
+  };
+
+  const refreshOllama = () => {
+    if (!s.local_ai_enabled || locked) return;
     api.checkOllama().then(setOllamaStatus).catch(() =>
       setOllamaStatus({ available: false, models: [] })
     );
-  }, []);
+  };
 
   const save = async () => {
     setSaving(true);
+    setSaveError(null);
     try {
-      await api.saveSettings(settings);
-      if (jira.site_url && jira.email && jira.api_token) {
-        await api.saveJiraCredentials(jira);
+      const toSave = withDefaultIntegrations(settings);
+      await api.saveSettings(toSave);
+
+      if (toSave.mcp_enabled && !toSave.local_only_mode) {
+        await api.saveMcpConfig(mcpConfig);
       }
-      await api.saveMcpConfig(mcpConfig);
+
+      if (toSave.jira_enabled && !toSave.local_only_mode) {
+        const siteUrl = jira.site_url.trim().replace(/\/+$/, "");
+        const email = jira.email.trim();
+        const token = jira.api_token.trim();
+        const hasAny = siteUrl || email || token;
+        const hasAll = siteUrl && email && token;
+        if (hasAny && !hasAll) {
+          throw new Error("Jira requires Site URL, email, and API token.");
+        }
+        if (hasAll) {
+          await api.saveJiraCredentials({ site_url: siteUrl, email, api_token: token });
+          setJira({ site_url: siteUrl, email, api_token: token });
+        }
+      }
+
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
+    } catch (e) {
+      setSaveError(String(e));
     } finally {
       setSaving(false);
     }
@@ -56,141 +182,470 @@ export function Settings() {
     setJira({ site_url: "", email: "", api_token: "" });
   };
 
+  const jiraConnected = !!(jira.site_url && jira.email && jira.api_token);
+
   return (
-    <div className={styles.container}>
-      <h1 className="headline-md">Settings</h1>
+    <div className={clsx(styles.page, "hide-scrollbar")}>
+      <div className={styles.inner}>
+        <header className={styles.header}>
+          <h1 className={styles.title}>Settings</h1>
+          <p className={styles.subtitle}>
+            Manage privacy, appearance, AI models, and optional integrations.
+          </p>
+        </header>
 
-      <section className={styles.section}>
-        <h2 className="label-md">Appearance</h2>
-        <div className={styles.row}>
-          <label>Theme</label>
-          <select
-            className="input"
-            style={{ width: "auto" }}
-            value={settings.theme}
-            onChange={(e) =>
-              setSettings({
-                ...settings,
-                theme: e.target.value as "light" | "dark",
-              })
-            }
-          >
-            <option value="light">Light</option>
-            <option value="dark">Dark</option>
-          </select>
-        </div>
-      </section>
-
-      <section className={styles.section}>
-        <h2 className="label-md">Ollama (Local LLM)</h2>
-        <p className={styles.hint}>
-          Install Ollama and pull a tool-calling model:{" "}
-          <code>ollama pull qwen2.5:7b</code>
-        </p>
-        {ollamaStatus && (
-          <div className={styles.status}>
-            {ollamaStatus.available ? (
-              <span className={styles.statusOk}>
-                <Check size={14} /> Connected — {ollamaStatus.models.length} models
-              </span>
-            ) : (
-              <span className={styles.statusErr}>Ollama not detected at localhost:11434</span>
-            )}
+        <section className={styles.section}>
+          <p className={styles.sectionLabel}>Privacy</p>
+          <div className={styles.panel}>
+            <div className={styles.row}>
+              <div className={styles.rowIcon}>
+                <Shield size={18} />
+              </div>
+              <div className={styles.rowBody}>
+                <p className={styles.rowTitle}>Local Only Mode</p>
+                <p className={styles.rowDesc}>
+                  Block all external network calls. Your notes never leave this device.
+                </p>
+                <p className={styles.dataPath}>
+                  <span className={styles.dataPathLabel}>Storage</span>
+                  <code className={styles.dataPathValue}>
+                    {dataDir || "…"}
+                  </code>
+                </p>
+              </div>
+              <div className={styles.rowActions}>
+                {s.local_only_mode && (
+                  <span className={clsx(styles.badge, styles.badgeActive)}>Active</span>
+                )}
+                <label className={styles.toggle} title="Toggle Local Only Mode">
+                  <input
+                    type="checkbox"
+                    checked={s.local_only_mode}
+                    onChange={(e) => update({ local_only_mode: e.target.checked })}
+                  />
+                  <span className={styles.toggleTrack} />
+                  <span className={styles.toggleThumb} />
+                </label>
+              </div>
+            </div>
           </div>
-        )}
-        <div className={styles.field}>
-          <label>Endpoint</label>
-          <input
-            className="input"
-            value={settings.ollama_endpoint}
-            onChange={(e) =>
-              setSettings({ ...settings, ollama_endpoint: e.target.value })
-            }
-          />
-        </div>
-        <div className={styles.field}>
-          <label>Model</label>
-          <input
-            className="input"
-            value={settings.ollama_model}
-            onChange={(e) =>
-              setSettings({ ...settings, ollama_model: e.target.value })
-            }
-          />
-        </div>
-      </section>
+        </section>
 
-      <section className={styles.section}>
-        <h2 className="label-md">Jira Connection</h2>
-        <p className={styles.hint}>
-          Credentials are stored in your OS keychain. Used by the /jira agent via MCP.
-        </p>
-        <div className={styles.field}>
-          <label>Site URL</label>
-          <input
-            className="input"
-            placeholder="https://yourcompany.atlassian.net"
-            value={jira.site_url}
-            onChange={(e) => setJira({ ...jira, site_url: e.target.value })}
-          />
-        </div>
-        <div className={styles.field}>
-          <label>Email</label>
-          <input
-            className="input"
-            type="email"
-            value={jira.email}
-            onChange={(e) => setJira({ ...jira, email: e.target.value })}
-          />
-        </div>
-        <div className={styles.field}>
-          <label>API Token</label>
-          <input
-            className="input"
-            type="password"
-            value={jira.api_token}
-            onChange={(e) => setJira({ ...jira, api_token: e.target.value })}
-          />
-        </div>
-        <button className="btn-secondary" onClick={clearJira}>
-          <Trash2 size={14} /> Clear credentials
-        </button>
-      </section>
+        <section className={styles.section}>
+          <p className={styles.sectionLabel}>Appearance</p>
+          <div className={styles.panel}>
+            <div className={styles.row}>
+              <div className={styles.rowIcon}>
+                <Sun size={18} />
+              </div>
+              <div className={styles.rowBody}>
+                <p className={styles.rowTitle}>Theme</p>
+                <p className={styles.rowDesc}>Choose how Betternote looks on your device.</p>
+              </div>
+              <div className={styles.rowActions}>
+                <div className={styles.themeSegment}>
+                  <button
+                    type="button"
+                    className={clsx(
+                      styles.themeBtn,
+                      settings.theme === "light" && styles.themeBtnActive
+                    )}
+                    onClick={() => update({ theme: "light" })}
+                  >
+                    <Sun size={14} />
+                    Light
+                  </button>
+                  <button
+                    type="button"
+                    className={clsx(
+                      styles.themeBtn,
+                      settings.theme === "dark" && styles.themeBtnActive
+                    )}
+                    onClick={() => update({ theme: "dark" })}
+                  >
+                    <Moon size={14} />
+                    Dark
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
 
-      <section className={styles.section}>
-        <h2 className="label-md">MCP Server Config</h2>
-        <p className={styles.hint}>
-          Command used to start the Jira MCP server (like Cursor's mcp.json).
-        </p>
-        <div className={styles.field}>
-          <label>Command</label>
-          <input
-            className="input"
-            value={mcpConfig.command}
-            onChange={(e) =>
-              setMcpConfig({ ...mcpConfig, command: e.target.value })
-            }
-          />
-        </div>
-        <div className={styles.field}>
-          <label>Args (comma-separated)</label>
-          <input
-            className="input"
-            value={mcpConfig.args.join(", ")}
-            onChange={(e) =>
-              setMcpConfig({
-                ...mcpConfig,
-                args: e.target.value.split(",").map((s) => s.trim()),
-              })
-            }
-          />
-        </div>
-      </section>
+        <section className={styles.section}>
+          <p className={styles.sectionLabel}>Models &amp; API</p>
+          <p className={styles.sectionHint}>
+            Configure AI providers for note actions like summarize, rewrite, and explain.
+          </p>
+          <div className={styles.panel}>
+            <div className={clsx(styles.row, locked && styles.rowDisabled)}>
+              <div className={clsx(styles.rowIcon, styles.rowIconBrand)}>
+                <OllamaIcon />
+              </div>
+              <div className={styles.rowBody}>
+                <p className={styles.rowTitle}>Ollama (Local)</p>
+                <p className={styles.rowDesc}>
+                  Run models on your machine. No data leaves your device.
+                </p>
+              </div>
+              <div className={styles.rowActions}>
+                {s.local_ai_enabled ? (
+                  <button
+                    type="button"
+                    className={styles.actionBtn}
+                    onClick={() => toggleExpand("ollama")}
+                  >
+                    Manage
+                    {expanded === "ollama" ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className={styles.actionBtn}
+                    disabled={locked}
+                    onClick={() => connectIntegration("local_ai_enabled", "ollama")}
+                  >
+                    Connect
+                    <ExternalLink size={13} />
+                  </button>
+                )}
+              </div>
+            </div>
+            {expanded === "ollama" && s.local_ai_enabled && !locked && (
+              <div className={styles.expandPanel}>
+                <IntegrationSetupInline integrationId="ollama" locked={!!locked} />
+                <IntegrationConfigSection hint="Enter your Ollama endpoint and model.">
+                  {ollamaStatus && (
+                    <p
+                      className={clsx(
+                        styles.statusLine,
+                        ollamaStatus.available ? styles.statusOk : styles.statusErr
+                      )}
+                    >
+                      {ollamaStatus.available ? (
+                        <>
+                          <Check size={14} /> Connected · {ollamaStatus.models.length} models
+                          available
+                        </>
+                      ) : (
+                        "Ollama not detected. Install from ollama.com and run: ollama pull qwen2.5:7b"
+                      )}
+                    </p>
+                  )}
+                  <div className={styles.fieldGrid}>
+                    <div className={styles.field}>
+                      <label>Endpoint</label>
+                      <input
+                        value={settings.ollama_endpoint}
+                        onChange={(e) => update({ ollama_endpoint: e.target.value })}
+                        onBlur={refreshOllama}
+                      />
+                    </div>
+                    <div className={styles.field}>
+                      <label>Default model</label>
+                      {ollamaStatus?.models.length ? (
+                        <select
+                          className={styles.select}
+                          value={settings.ollama_model}
+                          onChange={(e) => update({ ollama_model: e.target.value })}
+                        >
+                          {ollamaStatus.models.map((model) => (
+                            <option key={model} value={model}>
+                              {model}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          value={settings.ollama_model}
+                          onChange={(e) => update({ ollama_model: e.target.value })}
+                          placeholder="qwen2.5:7b"
+                        />
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className={styles.linkBtn}
+                    onClick={() => {
+                      update({ local_ai_enabled: false });
+                      setExpanded(null);
+                    }}
+                  >
+                    Disconnect
+                  </button>
+                </IntegrationConfigSection>
+              </div>
+            )}
 
-      <button className="btn-primary" onClick={save} disabled={saving}>
-        {saving ? <Loader2 size={16} className={styles.spinner} /> : saved ? <Check size={16} /> : null}
-        {saved ? "Saved" : "Save settings"}
-      </button>
+            <ComingSoonRow
+              icon={<OpenAIIcon />}
+              title="OpenAI"
+              description="Use GPT models for note actions via your API key."
+            />
+            <ComingSoonRow
+              icon={<AnthropicIcon />}
+              title="Anthropic"
+              description="Use Claude models for note actions via your API key."
+            />
+          </div>
+        </section>
+
+        <section className={styles.section}>
+          <p className={styles.sectionLabel}>Integrations</p>
+          <p className={styles.sectionHint}>
+            Connect external tools to link issues, sync tasks, and extend workflows.
+          </p>
+          <div className={styles.panel}>
+            <div className={clsx(styles.row, locked && styles.rowDisabled)}>
+              <div className={styles.rowIcon}>
+                <Cpu size={18} />
+              </div>
+              <div className={styles.rowBody}>
+                <p className={styles.rowTitle}>MCP Server</p>
+                <p className={styles.rowDesc}>
+                  Connect any MCP-compatible server for agent workflows.
+                </p>
+              </div>
+              <div className={styles.rowActions}>
+                {s.mcp_enabled ? (
+                  <button
+                    type="button"
+                    className={styles.actionBtn}
+                    onClick={() => toggleExpand("mcp")}
+                  >
+                    Manage
+                    {expanded === "mcp" ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className={styles.actionBtn}
+                    disabled={locked}
+                    onClick={() => connectIntegration("mcp_enabled", "mcp")}
+                  >
+                    Connect
+                    <ExternalLink size={13} />
+                  </button>
+                )}
+              </div>
+            </div>
+            {expanded === "mcp" && s.mcp_enabled && !locked && (
+              <div className={styles.expandPanel}>
+                <IntegrationSetupInline integrationId="mcp" locked={!!locked} />
+                <IntegrationConfigSection hint="Command and args for your MCP server package.">
+                  <div className={styles.fieldGrid}>
+                    <div className={styles.field}>
+                      <label>Command</label>
+                      <input
+                        placeholder="npx"
+                        value={mcpConfig.command}
+                        onChange={(e) =>
+                          setMcpConfig({ ...mcpConfig, command: e.target.value })
+                        }
+                      />
+                    </div>
+                    <div className={styles.field}>
+                      <label>Args (comma-separated)</label>
+                      <input
+                        placeholder="-y, your-mcp-server"
+                        value={mcpConfig.args.join(", ")}
+                        onChange={(e) =>
+                          setMcpConfig({
+                            ...mcpConfig,
+                            args: e.target.value
+                              .split(",")
+                              .map((a) => a.trim())
+                              .filter(Boolean),
+                          })
+                        }
+                      />
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className={styles.linkBtn}
+                    onClick={() => {
+                      update({ mcp_enabled: false });
+                      setExpanded(null);
+                    }}
+                  >
+                    Disconnect
+                  </button>
+                </IntegrationConfigSection>
+              </div>
+            )}
+
+            <div className={clsx(styles.row, locked && styles.rowDisabled)}>
+              <div className={clsx(styles.rowIcon, styles.rowIconBrand)}>
+                <JiraIcon />
+              </div>
+              <div className={styles.rowBody}>
+                <p className={styles.rowTitle}>Jira</p>
+                <p className={styles.rowDesc}>
+                  {jiraConnected && s.jira_enabled
+                    ? `Connected as ${jira.email}`
+                    : "Link tickets, sync tasks, and insert chips in notes."}
+                </p>
+              </div>
+              <div className={styles.rowActions}>
+                {s.jira_enabled ? (
+                  <button
+                    type="button"
+                    className={styles.actionBtn}
+                    onClick={() => toggleExpand("jira")}
+                  >
+                    Manage
+                    {expanded === "jira" ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className={styles.actionBtn}
+                    disabled={locked}
+                    onClick={() => connectIntegration("jira_enabled", "jira")}
+                  >
+                    Connect
+                    <ExternalLink size={13} />
+                  </button>
+                )}
+              </div>
+            </div>
+            {expanded === "jira" && s.jira_enabled && !locked && (
+              <div className={styles.expandPanel}>
+                <IntegrationSetupInline integrationId="jira" locked={!!locked} />
+                <IntegrationConfigSection hint="Credentials and defaults for Jira in Betternote.">
+                  <div className={styles.fieldGrid}>
+                    <div className={styles.field}>
+                      <label>Sidebar section name</label>
+                      <input
+                        placeholder="My issues"
+                        value={settings.jira_section_title ?? ""}
+                        onChange={(e) => update({ jira_section_title: e.target.value })}
+                      />
+                    </div>
+                    <div className={styles.field}>
+                      <label>Default project key</label>
+                      <input
+                        placeholder="e.g. PROJ"
+                        value={settings.default_jira_project_key || ""}
+                        onChange={(e) =>
+                          update({ default_jira_project_key: e.target.value.toUpperCase() })
+                        }
+                      />
+                    </div>
+                    <div className={styles.field}>
+                      <label>Site URL</label>
+                      <input
+                        placeholder="https://yourcompany.atlassian.net"
+                        value={jira.site_url}
+                        onChange={(e) => setJira({ ...jira, site_url: e.target.value })}
+                      />
+                    </div>
+                    <div className={styles.field}>
+                      <label>Email</label>
+                      <input
+                        type="email"
+                        value={jira.email}
+                        onChange={(e) => setJira({ ...jira, email: e.target.value })}
+                      />
+                    </div>
+                    <div className={styles.field}>
+                      <label>API Token</label>
+                      <input
+                        type="password"
+                        value={jira.api_token}
+                        onChange={(e) => setJira({ ...jira, api_token: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                  <div className={styles.configActions}>
+                    <button type="button" className={styles.linkBtn} onClick={clearJira}>
+                      <Trash2 size={13} /> Clear credentials
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.linkBtn}
+                      onClick={() => {
+                        update({ jira_enabled: false });
+                        setExpanded(null);
+                      }}
+                    >
+                      Disconnect
+                    </button>
+                  </div>
+                </IntegrationConfigSection>
+              </div>
+            )}
+
+            <ComingSoonRow
+              icon={<GitHubIcon />}
+              title="GitHub"
+              description="Link issues and pull requests to notes."
+            />
+            <ComingSoonRow
+              icon={<LinearIcon />}
+              title="Linear"
+              description="Sync issues and projects from Linear."
+            />
+            <ComingSoonRow
+              icon={<NotionIcon />}
+              title="Notion"
+              description="Import pages and sync notes with Notion workspaces."
+            />
+            <ComingSoonRow
+              icon={<TrelloIcon />}
+              title="Trello"
+              description="Link cards and boards to your notes."
+            />
+            <ComingSoonRow
+              icon={<HacknPlanIcon />}
+              title="HacknPlan"
+              description="Sync game dev tasks and milestones from HacknPlan."
+            />
+            <ComingSoonRow
+              icon={<GoogleSheetsIcon />}
+              title="Google Sheets"
+              description="Export notes and task lists to spreadsheets."
+            />
+          </div>
+        </section>
+
+        {saveError && <p className={styles.statusErr}>{saveError}</p>}
+
+        <div className={styles.footer}>
+          <button type="button" className={styles.saveBtn} onClick={save} disabled={saving}>
+            {saving ? <Loader2 size={16} className={styles.spinner} /> : null}
+            Save settings
+          </button>
+          {saved && (
+            <span className={styles.savedHint}>
+              <Check size={14} /> Saved
+            </span>
+          )}
+        </div>
+
+        <div className={styles.shortcuts}>
+          <p className={styles.shortcutsTitle}>Keyboard shortcuts</p>
+          <div className={styles.shortcutGrid}>
+            <span className={styles.shortcutItem}>
+              <kbd>⌘F</kbd> Search
+            </span>
+            <span className={styles.shortcutItem}>
+              <kbd>⌘N</kbd> Quick capture
+            </span>
+            <span className={styles.shortcutItem}>
+              <kbd>G</kbd> <kbd>N</kbd> Notes
+            </span>
+            <span className={styles.shortcutItem}>
+              <kbd>G</kbd> <kbd>S</kbd> Settings
+            </span>
+            <span className={styles.shortcutItem}>
+              <kbd>/</kbd> Slash commands
+            </span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

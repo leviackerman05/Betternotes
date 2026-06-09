@@ -1,0 +1,61 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 250;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.dialog {
+  width: calc(100% - 32px);
+  max-width: 400px;
+  padding: 22px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--panel-radius);
+  box-shadow: var(--shadow-lg);
+}
+
+.title {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 16px;
+  letter-spacing: -0.02em;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 100px 1fr;
+  gap: 8px 12px;
+  font-size: 14px;
+  margin-bottom: 20px;
+}
+
+.grid dt {
+  color: var(--color-on-surface-muted);
+  font-weight: 500;
+  font-size: 12px;
+}
+
+.grid dd {
+  color: var(--color-on-surface);
+  word-break: break-word;
+}
+
+.closeBtn {
+  width: 100%;
+  padding: 10px;
+  background: var(--color-on-surface);
+  color: var(--color-surface);
+  border-radius: var(--control-radius);
+  font-weight: 600;
+  font-size: 14px;
+  transition: opacity var(--transition);
+}
+
+.closeBtn:hover {
+  opacity: 0.9;
+}

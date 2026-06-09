@@ -1,0 +1,88 @@
+.toolbar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--color-border);
+  background: var(--color-neutral);
+}
+
+.btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--control-radius);
+  color: var(--color-on-surface-muted);
+  transition: background var(--transition), color var(--transition);
+}
+
+.btn:hover:not(:disabled) {
+  background: var(--color-surface-muted);
+  color: var(--color-on-surface);
+}
+
+.btn:disabled {
+  opacity: 0.35;
+}
+
+.btnActive {
+  background: var(--color-surface-muted);
+  color: var(--color-on-surface);
+}
+
+.reminderBtn {
+  width: auto;
+  min-width: 40px;
+  padding: 0 10px;
+  gap: 6px;
+}
+
+.badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  font-size: 9px;
+  font-weight: 700;
+  border-radius: var(--radius-full);
+  background: var(--color-on-surface);
+  color: var(--color-surface);
+}
+
+.colorPicker {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  padding: 8px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--panel-radius);
+  box-shadow: var(--shadow-md);
+}
+
+.colorSwatch,
+.colorNone {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-full);
+  border: 2px solid transparent;
+}
+
+.colorNone {
+  background: var(--color-surface-muted);
+  border-color: var(--color-border);
+}
+
+.colorSwatchOn {
+  border-color: var(--color-on-surface);
+}

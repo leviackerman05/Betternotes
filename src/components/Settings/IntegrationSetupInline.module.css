@@ -1,0 +1,154 @@
+.guideZone {
+  padding: 0;
+  background: color-mix(in srgb, var(--color-surface-muted) 65%, var(--color-surface));
+  border: 1px dashed color-mix(in srgb, var(--color-on-surface-muted) 35%, var(--color-border));
+  border-radius: var(--panel-radius);
+  overflow: hidden;
+}
+
+.guideZoneOpen {
+  border-style: dashed;
+}
+
+.guideHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 14px;
+  text-align: left;
+  background: color-mix(in srgb, var(--color-surface-muted) 80%, var(--color-surface));
+  border: none;
+  cursor: pointer;
+  transition: background var(--transition);
+}
+
+.guideZoneOpen .guideHeader {
+  border-bottom: 1px dashed color-mix(in srgb, var(--color-on-surface-muted) 28%, var(--color-border));
+}
+
+.guideHeader:hover {
+  background: color-mix(in srgb, var(--color-surface-muted) 55%, var(--color-surface));
+}
+
+.guideHeaderIcon {
+  flex-shrink: 0;
+  color: var(--color-on-surface-muted);
+}
+
+.guideHeaderText {
+  flex: 1;
+  min-width: 0;
+}
+
+.guideChevron {
+  flex-shrink: 0;
+  color: var(--color-on-surface-muted);
+  transition: transform var(--transition);
+}
+
+.guideChevronOpen {
+  transform: rotate(180deg);
+}
+
+.guideLabel {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-on-surface-muted);
+}
+
+.guideHint {
+  margin: 2px 0 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--color-on-surface-muted);
+  opacity: 0.9;
+}
+
+.guideBody {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+}
+
+.comingSoon {
+  margin: 0;
+  padding: 14px;
+  font-size: 12px;
+  color: var(--color-on-surface-muted);
+}
+
+.locked {
+  margin: 0;
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--color-on-surface);
+  background: color-mix(in srgb, var(--color-accent) 8%, var(--color-surface));
+  border: 1px solid color-mix(in srgb, var(--color-accent) 22%, var(--color-border));
+  border-radius: var(--control-radius);
+}
+
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.linkChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-on-surface-muted);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.linkChip:hover {
+  color: var(--color-on-surface);
+}
+
+.chatBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.chatToggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 9px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-on-surface-muted);
+  background: var(--color-surface);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--control-radius);
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition);
+}
+
+.chatToggle:hover {
+  color: var(--color-on-surface);
+  background: var(--color-surface-muted);
+}
+
+.chatChevron {
+  color: var(--color-on-surface-muted);
+  transition: transform var(--transition);
+}
+
+.chatChevronOpen {
+  transform: rotate(180deg);
+}

@@ -1,0 +1,113 @@
+.menu {
+  position: fixed;
+  z-index: 300;
+  min-width: 220px;
+  max-width: 260px;
+  max-height: calc(100vh - 16px);
+  overflow-y: auto;
+  padding: 6px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--panel-radius);
+  box-shadow: var(--shadow-lg);
+  scrollbar-width: none;
+}
+
+.menu::-webkit-scrollbar {
+  display: none;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: var(--control-radius);
+  font-size: 14px;
+  text-align: left;
+  color: var(--color-on-surface);
+  transition: background var(--transition);
+}
+
+.item:hover:not(:disabled) {
+  background: var(--color-surface-muted);
+}
+
+.item:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.itemActive {
+  background: var(--color-surface-muted);
+}
+
+.itemDanger {
+  color: var(--color-error);
+}
+
+.itemDanger:hover:not(:disabled) {
+  background: var(--color-surface-muted);
+}
+
+.icon {
+  flex-shrink: 0;
+  color: var(--color-on-surface-muted);
+}
+
+.itemDanger .icon {
+  color: var(--color-error);
+}
+
+.chevron {
+  margin-left: auto;
+  color: var(--color-on-surface-muted);
+}
+
+.divider {
+  height: 1px;
+  margin: 4px 8px;
+  background: var(--color-border);
+}
+
+.submenu {
+  position: absolute;
+  left: calc(100% + 4px);
+  top: 0;
+  min-width: 160px;
+  max-height: min(240px, calc(100vh - 32px));
+  overflow-y: auto;
+  padding: 6px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--panel-radius);
+  box-shadow: var(--shadow-md);
+  scrollbar-width: none;
+}
+
+.submenuFlip {
+  left: auto;
+  right: calc(100% + 4px);
+}
+
+.submenu::-webkit-scrollbar {
+  display: none;
+}
+
+.subItem {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: var(--control-radius);
+  font-size: 13px;
+  text-align: left;
+  color: var(--color-on-surface);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.subItem:hover {
+  background: var(--color-surface-muted);
+}

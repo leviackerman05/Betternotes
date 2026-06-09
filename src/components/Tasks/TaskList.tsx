@@ -1,141 +1,300 @@
-import { useState } from "react";
-import { Check, ExternalLink, Trash2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ExternalLink, RefreshCw } from "lucide-react";
 import clsx from "clsx";
-import type { Task, TaskView } from "../../types";
-import { isOverdue, isToday, isUpcoming } from "../../lib/taskParser";
+import type { Task } from "../../types";
+import { api } from "../../lib/api";
+import { openExternal } from "../../lib/openExternal";
+import {
+  DEFAULT_JIRA_SECTION_TITLE,
+  jiraSectionTitle,
+  withDefaultIntegrations,
+} from "../../lib/integrations";
+import {
+  activeJiraMyIssuesFilter,
+  buildJiraMyIssuesPreset,
+  jiraMyIssuesJql,
+  JIRA_MY_ISSUES_FILTER_LABELS,
+  type JiraMyIssuesPreset,
+} from "../../lib/jiraMyIssuesJql";
+import {
+  groupJiraTasksByStatus,
+  jiraTasksOnly,
+  parseJiraMeta,
+  statusTone,
+} from "../../lib/jiraTasks";
+import { useAppStore } from "../../store/appStore";
 import styles from "./TaskList.module.css";
 
+const FILTER_OPTIONS: Array<JiraMyIssuesPreset | "custom"> = [
+  "sprint_and_backlog",
+  "sprint_only",
+  "all_open",
+  "custom",
+];
+
 interface TaskListProps {
-  view: TaskView;
   tasks: Task[];
-  onToggle: (id: string) => void;
-  onDelete: (id: string) => void;
-  onAdd: (title: string) => void;
+  onSyncJira: () => Promise<unknown>;
 }
 
-function filterTasks(tasks: Task[], view: TaskView): Task[] {
-  const active = tasks.filter((t) => !t.completed);
-  switch (view) {
-    case "inbox":
-      return active.filter((t) => !t.due_date);
-    case "today":
-      return active.filter((t) => isToday(t.due_date) || isOverdue(t.due_date));
-    case "upcoming":
-      return active.filter((t) => isUpcoming(t.due_date));
-    default:
-      return active;
-  }
-}
+export function TaskList({ tasks, onSyncJira }: TaskListProps) {
+  const settings = useAppStore((s) => s.settings);
+  const setSettings = useAppStore((s) => s.setSettings);
+  const sectionTitle = jiraSectionTitle(settings);
+  const savedFilter = activeJiraMyIssuesFilter(settings);
 
-const VIEW_TITLES: Record<TaskView, string> = {
-  inbox: "Inbox",
-  today: "Today",
-  upcoming: "Upcoming",
-};
+  const [syncing, setSyncing] = useState(false);
+  const [filterView, setFilterView] = useState(savedFilter);
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const [initialLoad, setInitialLoad] = useState(true);
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [titleDraft, setTitleDraft] = useState(sectionTitle);
+  const [customDraft, setCustomDraft] = useState(jiraMyIssuesJql(settings));
+  const titleRef = useRef<HTMLInputElement>(null);
 
-const PRIORITY_COLORS: Record<number, string> = {
-  1: "#e34432",
-  2: "#f5a623",
-  3: "#4a90d9",
-  4: "#c4c0bb",
-};
+  const jiraTasks = jiraTasksOnly(tasks);
+  const groups = groupJiraTasksByStatus(tasks);
 
-export function TaskList({ view, tasks, onToggle, onDelete, onAdd }: TaskListProps) {
-  const [input, setInput] = useState("");
-  const filtered = filterTasks(tasks, view);
-  const overdue = view === "today" ? filtered.filter((t) => isOverdue(t.due_date)) : [];
-  const rest =
-    view === "today"
-      ? filtered.filter((t) => !isOverdue(t.due_date))
-      : filtered;
+  useEffect(() => {
+    if (!editingTitle) setTitleDraft(sectionTitle);
+  }, [sectionTitle, editingTitle]);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!input.trim()) return;
-    onAdd(input.trim());
-    setInput("");
+  useEffect(() => {
+    setFilterView(savedFilter);
+  }, [savedFilter]);
+
+  useEffect(() => {
+    if (filterView === "custom") {
+      setCustomDraft(settings.jira_my_issues_jql?.trim() || jiraMyIssuesJql(settings));
+    }
+  }, [filterView, settings.jira_my_issues_jql, settings.default_jira_project_key]);
+
+  useEffect(() => {
+    if (editingTitle) titleRef.current?.focus();
+  }, [editingTitle]);
+
+  const handleSyncJira = async () => {
+    if (syncing) return;
+    setSyncing(true);
+    setSyncError(null);
+    try {
+      await onSyncJira();
+    } catch (err) {
+      setSyncError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSyncing(false);
+      setInitialLoad(false);
+    }
   };
 
-  const renderTask = (task: Task) => (
-    <div key={task.id} className={styles.task}>
-      <button
-        className={styles.checkbox}
-        onClick={() => onToggle(task.id)}
-        style={{ borderColor: PRIORITY_COLORS[task.priority] }}
-        aria-label="Complete task"
-      >
-        {task.completed && <Check size={12} />}
-      </button>
-      <div className={styles.taskContent}>
-        <span className={clsx(styles.taskTitle, task.completed && styles.completed)}>
-          {task.title}
-        </span>
-        <div className={styles.meta}>
-          {task.due_date && (
-            <span className={clsx(styles.date, isOverdue(task.due_date) && styles.overdue)}>
-              {task.due_date}
-            </span>
-          )}
-          {task.priority < 4 && (
-            <span className="chip chip--primary">P{task.priority}</span>
-          )}
-          {task.source === "jira" && (
-            <span className="chip chip--jira">
-              {task.jira_key}
-              {task.jira_url && (
-                <a href={task.jira_url} target="_blank" rel="noreferrer">
-                  <ExternalLink size={10} />
-                </a>
-              )}
-            </span>
-          )}
-        </div>
-      </div>
-      <button className={styles.deleteBtn} onClick={() => onDelete(task.id)}>
-        <Trash2 size={14} />
-      </button>
-    </div>
-  );
+  useEffect(() => {
+    void handleSyncJira();
+    // Sync once when the Jira issues view opens
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const saveSettings = async (patch: Partial<typeof settings>) => {
+    const updated = withDefaultIntegrations({ ...settings, ...patch });
+    setSettings(updated);
+    await api.saveSettings(updated);
+    return updated;
+  };
+
+  const saveTitle = async () => {
+    const next = titleDraft.trim() || DEFAULT_JIRA_SECTION_TITLE;
+    setEditingTitle(false);
+    setTitleDraft(next);
+    try {
+      await saveSettings({ jira_section_title: next });
+    } catch (err) {
+      setSyncError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  const cancelTitleEdit = () => {
+    setTitleDraft(sectionTitle);
+    setEditingTitle(false);
+  };
+
+  const applyFilter = async (filter: JiraMyIssuesPreset | "custom") => {
+    setSyncError(null);
+    if (filter === "custom") {
+      setFilterView("custom");
+      setCustomDraft(settings.jira_my_issues_jql?.trim() || jiraMyIssuesJql(settings));
+      if (savedFilter !== "custom") return;
+    }
+
+    try {
+      const jql =
+        filter === "sprint_and_backlog"
+          ? ""
+          : filter === "custom"
+            ? customDraft.trim()
+            : buildJiraMyIssuesPreset(filter, settings);
+
+      if (filter === "custom" && !jql) return;
+
+      setFilterView(filter);
+      await saveSettings({ jira_my_issues_jql: jql });
+      await handleSyncJira();
+    } catch (err) {
+      setSyncError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  const openIssue = (task: Task) => {
+    if (task.jira_url) void openExternal(task.jira_url);
+  };
 
   return (
     <div className={styles.container}>
       <header className={styles.header}>
-        <h1 className="headline-md">{VIEW_TITLES[view]}</h1>
-        <span className="body-sm" style={{ color: "var(--color-on-surface-muted)" }}>
-          {filtered.length} {filtered.length === 1 ? "task" : "tasks"}
-        </span>
+        <div className={styles.headerMain}>
+          {editingTitle ? (
+            <input
+              ref={titleRef}
+              className={styles.titleField}
+              value={titleDraft}
+              onChange={(e) => setTitleDraft(e.target.value)}
+              onBlur={() => void saveTitle()}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") void saveTitle();
+                if (e.key === "Escape") cancelTitleEdit();
+              }}
+              maxLength={48}
+              aria-label="Section title"
+            />
+          ) : (
+            <h1
+              className={styles.title}
+              onClick={() => setEditingTitle(true)}
+              title="Click to rename"
+            >
+              {sectionTitle}
+            </h1>
+          )}
+          <p className={styles.meta}>
+            {syncing && initialLoad
+              ? "Syncing…"
+              : `${jiraTasks.length} ${jiraTasks.length === 1 ? "issue" : "issues"}`}
+          </p>
+
+          <div className={styles.filterRow}>
+            <div className={styles.filterPills} role="tablist" aria-label="Issue filter">
+              {FILTER_OPTIONS.map((filter) => (
+                <button
+                  key={filter}
+                  type="button"
+                  role="tab"
+                  aria-selected={filterView === filter}
+                  className={clsx(
+                    styles.filterPill,
+                    filterView === filter && styles.filterPillActive
+                  )}
+                  onClick={() => void applyFilter(filter)}
+                >
+                  {JIRA_MY_ISSUES_FILTER_LABELS[filter]}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              className={styles.iconBtn}
+              onClick={() => void handleSyncJira()}
+              disabled={syncing}
+              title="Refresh from Jira"
+            >
+              <RefreshCw size={14} className={syncing ? styles.spin : undefined} />
+            </button>
+          </div>
+
+          {filterView === "custom" && (
+            <div className={styles.customQuery}>
+              <textarea
+                className={styles.customInput}
+                rows={2}
+                spellCheck={false}
+                value={customDraft}
+                onChange={(e) => setCustomDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                    e.preventDefault();
+                    void applyFilter("custom");
+                  }
+                }}
+                placeholder="assignee = currentUser() AND …"
+                aria-label="Custom JQL query"
+              />
+              <div className={styles.customActions}>
+                <button
+                  type="button"
+                  className={styles.applyBtn}
+                  disabled={syncing || !customDraft.trim()}
+                  onClick={() => void applyFilter("custom")}
+                >
+                  Apply
+                </button>
+                <span className={styles.customHint}>⌘↵ to apply</span>
+              </div>
+            </div>
+          )}
+        </div>
       </header>
 
-      {view === "today" && overdue.length > 0 && (
-        <section className={styles.section}>
-          <h2 className={styles.sectionTitle}>
-            Overdue <span className={styles.sectionCount}>{overdue.length}</span>
-          </h2>
-          {overdue.map(renderTask)}
-        </section>
+      {syncError && <p className={styles.syncError}>{syncError}</p>}
+
+      {syncing && initialLoad && jiraTasks.length === 0 ? (
+        <div className={styles.loading}>
+          <RefreshCw size={20} className={styles.spin} />
+          <p>Loading your Jira tickets…</p>
+        </div>
+      ) : groups.length === 0 ? (
+        <div className={styles.emptyState}>
+          <p className={styles.emptyTitle}>No matching issues</p>
+          <p className={styles.emptyDesc}>
+            Try a different filter above or adjust your custom JQL.
+          </p>
+        </div>
+      ) : (
+        <div className={styles.board}>
+          {groups.map(({ status, tasks: groupTasks }) => (
+            <section key={status} className={styles.statusBlock}>
+              <div className={styles.statusHeader}>
+                <span
+                  className={clsx(styles.statusPill, styles[`statusPill_${statusTone(status)}`])}
+                >
+                  {status}
+                </span>
+                <span className={styles.statusCount}>{groupTasks.length}</span>
+              </div>
+              <div className={styles.issueList}>
+                {groupTasks.map((task) => {
+                  const meta = parseJiraMeta(task);
+                  return (
+                    <button
+                      key={task.id}
+                      type="button"
+                      className={styles.issueCard}
+                      onClick={() => openIssue(task)}
+                    >
+                      <div className={styles.issueMain}>
+                        <div className={styles.issueTop}>
+                          <span className={styles.issueKey}>{task.jira_key}</span>
+                          {meta.issueType && (
+                            <span className={styles.issueType}>{meta.issueType}</span>
+                          )}
+                        </div>
+                        <p className={styles.issueSummary}>{task.title}</p>
+                      </div>
+                      <ExternalLink size={14} className={styles.issueOpen} />
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          ))}
+        </div>
       )}
-
-      <section className={styles.section}>
-        {view === "today" && (
-          <h2 className={styles.sectionTitle}>
-            {new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short" })} · Today
-          </h2>
-        )}
-        {rest.length === 0 && overdue.length === 0 ? (
-          <p className={styles.empty}>No tasks here. Add one below.</p>
-        ) : (
-          rest.map(renderTask)
-        )}
-      </section>
-
-      <form className={styles.addForm} onSubmit={handleSubmit}>
-        <input
-          className={styles.addInput}
-          placeholder="Add a task… try 'Review PR tomorrow p2'"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-        />
-      </form>
     </div>
   );
 }

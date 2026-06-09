@@ -1,22 +1,22 @@
 .overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.3);
+  background: rgba(0, 0, 0, 0.4);
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  padding-top: 20vh;
+  padding-top: 18vh;
   z-index: 1000;
 }
 
 .palette {
-  width: 480px;
+  width: 520px;
   max-width: 90vw;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--panel-radius);
   overflow: hidden;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  box-shadow: var(--shadow-lg);
 }
 
 .searchRow {
@@ -37,29 +37,28 @@
   border: none;
   outline: none;
   background: transparent;
-  font-size: 16px;
+  font-size: 15px;
 }
 
 .kbd {
   font-size: 11px;
-  padding: 2px 6px;
+  padding: 2px 7px;
   background: var(--color-surface-muted);
-  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  border-radius: 5px;
   color: var(--color-on-surface-muted);
   font-family: var(--font-body);
 }
 
 .results {
-  max-height: 320px;
+  max-height: 360px;
   overflow-y: auto;
   padding: 8px;
 }
 
 .groupLabel {
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  font-size: 12px;
+  font-weight: 500;
   color: var(--color-on-surface-muted);
   padding: 8px 10px 4px;
 }
@@ -69,25 +68,42 @@
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  padding: 8px 10px;
-  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  border-radius: var(--control-radius);
   font-size: 14px;
   text-align: left;
   transition: background var(--transition);
 }
 
-.item:hover {
+.item:hover,
+.itemActive {
   background: var(--color-surface-muted);
+}
+
+.itemText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.itemSub {
+  font-size: 12px;
+  color: var(--color-on-surface-muted);
 }
 
 .shortcut {
   font-size: 11px;
   color: var(--color-on-surface-muted);
   font-family: var(--font-body);
+  padding: 2px 6px;
+  background: var(--color-surface-muted);
+  border: 1px solid var(--color-border);
+  border-radius: 5px;
 }
 
 .noResults {
-  padding: 16px;
+  padding: 20px;
   text-align: center;
   color: var(--color-on-surface-muted);
   font-size: 14px;

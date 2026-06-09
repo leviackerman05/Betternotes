@@ -1,18 +1,37 @@
 .app {
   display: flex;
   height: 100%;
+  min-width: 0;
   background: var(--color-neutral);
 }
 
 .main {
   flex: 1;
   display: flex;
-  background: var(--color-surface);
+  min-width: 0;
+  background: var(--color-neutral);
   overflow: hidden;
 }
 
 .notesLayout {
   flex: 1;
   display: flex;
+  min-width: 0;
   overflow: hidden;
+}
+
+.noteListWrap {
+  flex-shrink: 0;
+  width: var(--note-list-width);
+  min-width: 160px;
+  height: 100%;
+  display: flex;
+}
+
+.editorWrap {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  overflow: hidden;
+  background: var(--color-neutral);
 }

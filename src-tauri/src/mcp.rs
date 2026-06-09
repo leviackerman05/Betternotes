@@ -2,7 +2,7 @@ use crate::keychain::{get_mcp_config, mcp_env_with_jira};
 use crate::models::McpServerConfig;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader, Read, Write};
 use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::atomic::{AtomicI64, Ordering};
 
@@ -12,6 +12,7 @@ pub struct McpClient {
     child: Child,
     stdin: ChildStdin,
     reader: BufReader<std::process::ChildStdout>,
+    stderr: Option<std::process::ChildStderr>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -21,6 +22,18 @@ pub struct McpTool {
     pub input_schema: Value,
 }
 
+fn augment_path() -> String {
+    let current = std::env::var("PATH").unwrap_or_default();
+    format!(
+        "{current}:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
+    )
+}
+
+fn legacy_mcp_args(args: &[String]) -> bool {
+    args.iter()
+        .any(|a| a.contains("@anthropic/mcp-server-jira"))
+}
+
 impl McpClient {
     pub fn spawn(config: &McpServerConfig) -> Result<Self, String> {
         let env_vars = mcp_env_with_jira(config);
@@ -28,24 +41,61 @@ impl McpClient {
         cmd.args(&config.args)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::null());
+            .stderr(Stdio::piped())
+            .env("PATH", augment_path());
 
         for (k, v) in &env_vars {
             cmd.env(k, v);
         }
 
-        let mut child = cmd.spawn().map_err(|e| format!("Failed to spawn MCP server: {e}"))?;
+        if config.command.trim().is_empty() {
+            return Err("MCP command is empty. Set Command in Settings → MCP Server.".into());
+        }
+
+        let mut child = cmd
+            .spawn()
+            .map_err(|e| format!("Failed to spawn MCP server ({}): {e}", config.command))?;
         let stdin = child.stdin.take().ok_or("No stdin")?;
         let stdout = child.stdout.take().ok_or("No stdout")?;
+        let stderr = child.stderr.take();
         let reader = BufReader::new(stdout);
 
-        let mut client = McpClient { child, stdin, reader };
+        let mut client = McpClient {
+            child,
+            stdin,
+            reader,
+            stderr,
+        };
         client.initialize()?;
         Ok(client)
     }
 
     fn next_id() -> i64 {
         REQUEST_ID.fetch_add(1, Ordering::SeqCst)
+    }
+
+    fn read_stderr(&mut self) -> String {
+        let mut buf = String::new();
+        if let Some(stderr) = self.stderr.as_mut() {
+            let _ = stderr.read_to_string(&mut buf);
+        }
+        buf.trim().to_string()
+    }
+
+    fn closed_error(&mut self) -> String {
+        let stderr = self.read_stderr();
+        if let Ok(Some(status)) = self.child.try_wait() {
+            if !stderr.is_empty() {
+                return format!("MCP server exited ({status}): {stderr}");
+            }
+            return format!(
+                "MCP server exited ({status}). Check Command and Args in Settings → MCP Server."
+            );
+        }
+        if !stderr.is_empty() {
+            return format!("MCP server closed connection: {stderr}");
+        }
+        "MCP server closed connection".into()
     }
 
     fn send_request(&mut self, method: &str, params: Value) -> Result<Value, String> {
@@ -62,12 +112,24 @@ impl McpClient {
         self.read_response(id)
     }
 
+    fn send_notification(&mut self, method: &str, params: Value) -> Result<(), String> {
+        let notification = json!({
+            "jsonrpc": "2.0",
+            "method": method,
+            "params": params
+        });
+        let line = serde_json::to_string(&notification).map_err(|e| e.to_string())?;
+        writeln!(self.stdin, "{line}").map_err(|e| e.to_string())?;
+        self.stdin.flush().map_err(|e| e.to_string())?;
+        Ok(())
+    }
+
     fn read_response(&mut self, expected_id: i64) -> Result<Value, String> {
         let mut line = String::new();
         for _ in 0..30 {
             line.clear();
             match self.reader.read_line(&mut line) {
-                Ok(0) => return Err("MCP server closed connection".into()),
+                Ok(0) => return Err(self.closed_error()),
                 Ok(_) => {
                     let trimmed = line.trim();
                     if trimmed.is_empty() {
@@ -97,7 +159,7 @@ impl McpClient {
                 "clientInfo": { "name": "betternotes", "version": "0.1.0" }
             }),
         )?;
-        self.send_request("notifications/initialized", json!({}))?;
+        self.send_notification("notifications/initialized", json!({}))?;
         Ok(())
     }
 
@@ -146,7 +208,10 @@ pub fn run_with_client<F, T>(f: F) -> Result<T, String>
 where
     F: FnOnce(&mut McpClient) -> Result<T, String>,
 {
-    let config = get_mcp_config()?;
+    let mut config = get_mcp_config()?;
+    if legacy_mcp_args(&config.args) {
+        config.args = vec!["-y".to_string(), "mcp-server-jira-cloud".to_string()];
+    }
     let mut client = McpClient::spawn(&config)?;
     f(&mut client)
 }
