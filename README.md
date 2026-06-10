@@ -7,10 +7,15 @@ No backend. No login. Your notes stay on your machine.
 ## Download
 
 1. Download the `.dmg` from [GitHub Releases](https://github.com/leviackerman05/Betternotes/releases).
-2. Open it and drag **Betternote** into **Applications**.
+2. Open it and drag **Betternote** into **Applications** (installs to `/Applications/Betternote.app`).
 3. Open Betternote from Applications.
 
-Betternote is not Apple-notarized, so macOS may block the first launch. If you see **"damaged"** or the app will not open, **right-click Betternote in Applications → Open** and confirm once. After that, double-click works normally.
+Betternote is not Apple-notarized, so macOS may block the first launch. If you see **"damaged"** or the app will not open:
+
+- **Right-click** `/Applications/Betternote.app` → **Open** → confirm once, or
+- Run in Terminal: `xattr -cr /Applications/Betternote.app`
+
+After that, double-click works normally.
 
 <details>
 <summary>Optional: terminal install script</summary>
