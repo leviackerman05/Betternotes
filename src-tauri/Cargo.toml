@@ -1,6 +1,6 @@
 [package]
 name = "betternotes"
-version = "0.1.0"
+version = "0.1.4"
 description = "Betternote - local-first notes for developers"
 authors = ["you"]
 edition = "2021"

@@ -1,12 +1,16 @@
 #!/usr/bin/env bash
-# Install Betternote from a release DMG, or clear quarantine on an existing copy.
+# Install Betternote on macOS (download, copy to Applications, clear quarantine).
 #
-# Usage:
-#   ./scripts/install-macos.sh ~/Downloads/Betternote_0.1.0_aarch64.dmg
-#   ./scripts/install-macos.sh /Applications/Betternote.app
+# One command (recommended):
+#   curl -fsSL https://github.com/leviackerman05/Betternotes/releases/latest/download/install-macos.sh | bash
+#
+# Or with a local DMG / existing app:
+#   ./install-macos.sh ~/Downloads/Betternote.dmg
+#   ./install-macos.sh /Applications/Betternote.app
 #
 set -euo pipefail
 
+GITHUB_REPO="leviackerman05/Betternotes"
 APP_NAME="Betternote.app"
 INSTALL_DIR="/Applications"
 
@@ -15,9 +19,17 @@ die() {
   exit 1
 }
 
+machine_arch() {
+  case "$(uname -m)" in
+    arm64) echo "aarch64" ;;
+    x86_64) echo "x86_64" ;;
+    *) echo "aarch64" ;;
+  esac
+}
+
 clear_quarantine() {
   local app_path="$1"
-  echo "Clearing macOS quarantine on $app_path …"
+  echo "Clearing macOS quarantine …"
   xattr -cr "$app_path"
 }
 
@@ -40,8 +52,7 @@ install_from_dmg() {
   clear_quarantine "$INSTALL_DIR/$APP_NAME"
 
   echo ""
-  echo "Betternote is installed. Open it from Applications or Spotlight."
-  echo "You only need this script once per download."
+  echo "Done. Open Betternote from Applications or Spotlight."
 }
 
 install_from_app() {
@@ -58,11 +69,54 @@ install_from_app() {
 
   clear_quarantine "$app_path"
   echo ""
-  echo "Done. You can open Betternote from Applications."
+  echo "Done. Open Betternote from Applications."
 }
 
+pick_dmg_url() {
+  local arch="$1"
+  local api_url="https://api.github.com/repos/${GITHUB_REPO}/releases/latest"
+  local json
+  json=$(curl -fsSL "$api_url") || die "Could not fetch latest release from GitHub"
+
+  local url
+  url=$(printf '%s' "$json" | grep -oE '"browser_download_url":\s*"[^"]+"' \
+    | grep -i "${arch}" | grep -i '\.dmg"' | head -1 \
+    | sed -E 's/.*"(https[^"]+)"/\1/') || true
+
+  if [[ -z "$url" ]]; then
+    url=$(printf '%s' "$json" | grep -oE '"browser_download_url":\s*"[^"]+Betternote[^"]*\.dmg"' \
+      | head -1 | sed -E 's/.*"(https[^"]+)"/\1/') || true
+  fi
+
+  [[ -n "$url" ]] || die "No DMG found in latest release for ${arch}"
+  echo "$url"
+}
+
+install_latest() {
+  local arch
+  arch=$(machine_arch)
+  echo "Fetching latest Betternote release (${arch}) …"
+
+  local dmg_url
+  dmg_url=$(pick_dmg_url "$arch")
+
+  local tmp_dmg
+  tmp_dmg=$(mktemp -t betternote).dmg
+  trap 'rm -f "$tmp_dmg"' RETURN
+
+  echo "Downloading …"
+  curl -fsSL -o "$tmp_dmg" "$dmg_url"
+  install_from_dmg "$tmp_dmg"
+}
+
+if [[ $# -eq 0 ]]; then
+  install_latest
+  exit 0
+fi
+
 if [[ $# -ne 1 ]]; then
-  echo "Usage: $0 <path-to.dmg | path-to/Betternote.app>"
+  echo "Usage: $0"
+  echo "   or: $0 <path-to.dmg | path-to/Betternote.app>"
   exit 1
 fi
 
@@ -70,5 +124,5 @@ target="$1"
 case "$target" in
   *.dmg) install_from_dmg "$target" ;;
   *.app) install_from_app "$target" ;;
-  *) die "Pass a .dmg file or Betternote.app bundle" ;;
+  *) die "Pass a .dmg file, Betternote.app bundle, or run with no arguments" ;;
 esac
