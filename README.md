@@ -8,7 +8,32 @@ No backend. No login. Your notes stay on your machine.
 
 Get the latest macOS build from [GitHub Releases](https://github.com/leviackerman05/Betternotes/releases).
 
-> **Note:** Early releases may be unsigned. On first open, right-click the app → Open, or allow in System Settings → Privacy & Security.
+Betternote is not Apple-notarized (no paid developer certificate). macOS may show **"damaged"** or block the app the first time. Use either method below — **you only do this once**.
+
+### Option A — Right-click Open (no terminal)
+
+1. Download the `.dmg` from Releases and open it.
+2. Drag **Betternote** into **Applications**.
+3. In Applications, **right-click Betternote → Open** (do not double-click yet).
+4. Click **Open** in the dialog.
+5. After that, double-click works normally.
+
+### Option B — Install script (automated)
+
+Download the DMG, then run the script from the release (or this repo):
+
+```bash
+chmod +x install-macos.sh
+./install-macos.sh ~/Downloads/Betternote.dmg
+```
+
+Already copied the app to Applications? Point the script at the app:
+
+```bash
+./install-macos.sh /Applications/Betternote.app
+```
+
+The script installs (if needed) and clears macOS quarantine so you do not need to run `xattr` yourself.
 
 ## Features
 
