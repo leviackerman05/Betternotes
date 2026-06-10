@@ -9,7 +9,7 @@ git tag v0.1.1
 git push origin v0.1.1
 ```
 
-The [Release workflow](../.github/workflows/release.yml) builds and uploads the DMG.
+The [Release workflow](../.github/workflows/release.yml) builds and uploads `Betternote.dmg` (stable filename for the README direct-download link).
 
 Optional [`scripts/install-macos.sh`](../scripts/install-macos.sh) lives in the repo for terminal users but is not attached to releases.
 

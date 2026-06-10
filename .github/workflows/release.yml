@@ -29,12 +29,15 @@ jobs:
         env:
           CI: true
 
-      - name: List bundle artifacts
-        run: find src-tauri/target/release/bundle -type f | sort
+      - name: Prepare release DMG
+        run: |
+          DMG=$(find src-tauri/target/release/bundle/dmg -name '*.dmg' | head -1)
+          cp "$DMG" Betternote.dmg
+          ls -lh Betternote.dmg
 
       - name: Upload release assets
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
-          files: src-tauri/target/release/bundle/dmg/*.dmg
+          files: Betternote.dmg
           fail_on_unmatched_files: true

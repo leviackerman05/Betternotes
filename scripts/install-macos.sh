@@ -79,9 +79,14 @@ pick_dmg_url() {
   json=$(curl -fsSL "$api_url") || die "Could not fetch latest release from GitHub"
 
   local url
-  url=$(printf '%s' "$json" | grep -oE '"browser_download_url":\s*"[^"]+"' \
-    | grep -i "${arch}" | grep -i '\.dmg"' | head -1 \
-    | sed -E 's/.*"(https[^"]+)"/\1/') || true
+  url=$(printf '%s' "$json" | grep -oE '"browser_download_url":\s*"[^"]+Betternote\.dmg"' \
+    | head -1 | sed -E 's/.*"(https[^"]+)"/\1/') || true
+
+  if [[ -z "$url" ]]; then
+    url=$(printf '%s' "$json" | grep -oE '"browser_download_url":\s*"[^"]+"' \
+      | grep -i "${arch}" | grep -i '\.dmg"' | head -1 \
+      | sed -E 's/.*"(https[^"]+)"/\1/') || true
+  fi
 
   if [[ -z "$url" ]]; then
     url=$(printf '%s' "$json" | grep -oE '"browser_download_url":\s*"[^"]+Betternote[^"]*\.dmg"' \
