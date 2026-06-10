@@ -10,11 +10,6 @@
   border: 1px solid var(--color-border);
   border-radius: var(--panel-radius);
   box-shadow: var(--shadow-lg);
-  scrollbar-width: none;
-}
-
-.menu::-webkit-scrollbar {
-  display: none;
 }
 
 .item {
@@ -83,16 +78,11 @@
   border: 1px solid var(--color-border);
   border-radius: var(--panel-radius);
   box-shadow: var(--shadow-md);
-  scrollbar-width: none;
 }
 
 .submenuFlip {
   left: auto;
   right: calc(100% + 4px);
-}
-
-.submenu::-webkit-scrollbar {
-  display: none;
 }
 
 .subItem {

@@ -71,6 +71,32 @@
   gap: 8px;
 }
 
+.actionsSpread {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.discardBtn {
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-error);
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--control-radius);
+  transition: background var(--transition);
+}
+
+.discardBtn:hover:not(:disabled) {
+  background: var(--color-surface-muted);
+}
+
+.discardBtn:disabled {
+  opacity: 0.5;
+}
+
 .cancelBtn {
   padding: 8px 14px;
   font-size: 13px;

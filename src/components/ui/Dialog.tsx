@@ -183,6 +183,51 @@ export function PasswordDialog({
   );
 }
 
+interface UnsavedChangesDialogProps {
+  open: boolean;
+  saving?: boolean;
+  onSave: () => void;
+  onDiscard: () => void;
+}
+
+export function UnsavedChangesDialog({
+  open,
+  saving,
+  onSave,
+  onDiscard,
+}: UnsavedChangesDialogProps) {
+  if (!open) return null;
+
+  return (
+    <div className={styles.overlay}>
+      <div className={styles.dialog}>
+        <h3 className={styles.title}>Unsaved changes</h3>
+        <p className={styles.message}>
+          You have unsaved settings. Do you want to save them before leaving?
+        </p>
+        <div className={styles.actions}>
+          <button
+            type="button"
+            className={styles.discardBtn}
+            onClick={onDiscard}
+            disabled={saving}
+          >
+            Don&apos;t Save
+          </button>
+          <button
+            type="button"
+            className={styles.confirmBtn}
+            onClick={onSave}
+            disabled={saving}
+          >
+            {saving ? "Saving…" : "Save"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function ConfirmDialog({
   open,
   title,

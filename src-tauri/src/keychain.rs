@@ -141,10 +141,6 @@ fn empty_mcp_config() -> McpServerConfig {
     }
 }
 
-pub fn config_directory() -> PathBuf {
-    config_dir()
-}
-
 pub fn mcp_env_with_jira(config: &McpServerConfig) -> std::collections::HashMap<String, String> {
     let mut env = config.env.clone();
     if let Ok(Some(creds)) = get_jira_credentials() {

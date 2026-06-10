@@ -15,6 +15,7 @@ import {
 import clsx from "clsx";
 import type { Folder, Note } from "../../types";
 import { getNoteColorStyle } from "../../lib/noteColors";
+import { noAutocorrectProps } from "../../lib/noAutocorrect";
 import { getNotePreview } from "../../lib/notePreview";
 import { useAppStore } from "../../store/appStore";
 import { NoteContextMenu, type NoteMenuActions } from "./NoteContextMenu";
@@ -159,6 +160,7 @@ export function NoteList({
         <input
           className={styles.listSearchInput}
           placeholder="Search notes, tags…"
+          {...noAutocorrectProps}
           value={listSearchQuery}
           onChange={(e) => setListSearchQuery(e.target.value)}
         />
@@ -175,7 +177,7 @@ export function NoteList({
           )}
         </div>
       ) : (
-        <div className={clsx(styles.cards, "hide-scrollbar")}>
+        <div className={styles.cards}>
           {visibleNotes.map((note) => {
             const preview = getNotePreview(note.content);
             const colorStyle = getNoteColorStyle(note.color ?? null);

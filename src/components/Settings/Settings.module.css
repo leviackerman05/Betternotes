@@ -4,18 +4,27 @@
   min-height: 100%;
   overflow-y: auto;
   background: var(--color-neutral);
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-
-.page::-webkit-scrollbar {
-  display: none;
 }
 
 .inner {
   max-width: 720px;
   margin: 0 auto;
   padding: 40px 32px 24px;
+}
+
+.backBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 20px;
+  padding: 6px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-on-surface-muted);
+}
+
+.backBtn:hover {
+  color: var(--color-on-surface);
 }
 
 .header {

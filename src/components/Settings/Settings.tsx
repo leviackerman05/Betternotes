@@ -1,5 +1,6 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import {
+  ArrowLeft,
   Check,
   ChevronDown,
   ChevronUp,
@@ -15,6 +16,11 @@ import {
 import clsx from "clsx";
 import { api } from "../../lib/api";
 import { withDefaultIntegrations } from "../../lib/integrations";
+import {
+  createSettingsBaseline,
+  isSettingsDirty,
+  type SettingsBaseline,
+} from "../../lib/settingsDirty";
 import { useAppStore } from "../../store/appStore";
 import type { JiraCredentials, McpServerConfig } from "../../types";
 import {
@@ -79,6 +85,9 @@ function ComingSoonRow({ icon, title, description }: ComingSoonRowProps) {
 export function Settings() {
   const settings = useAppStore((s) => s.settings);
   const setSettings = useAppStore((s) => s.setSettings);
+  const setView = useAppStore((s) => s.setView);
+  const setSettingsDirty = useAppStore((s) => s.setSettingsDirty);
+  const setSettingsActions = useAppStore((s) => s.setSettingsActions);
 
   const [jira, setJira] = useState<JiraCredentials>({
     site_url: "",
@@ -99,24 +108,44 @@ export function Settings() {
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<ExpandPanel>(null);
+  const [baseline, setBaseline] = useState<SettingsBaseline | null>(null);
 
   const s = withDefaultIntegrations(settings);
   const locked = s.local_only_mode;
 
   useEffect(() => {
     api.getDataDir().then(setDataDir).catch(() => {});
-    api.getJiraCredentials().then((creds) => {
-      if (creds) setJira(creds);
-    });
-    if (s.mcp_enabled && !locked) {
-      api.getMcpConfig().then(setMcpConfig).catch(() => {});
-    }
-    if (s.local_ai_enabled && !locked) {
-      api.checkOllama().then(setOllamaStatus).catch(() =>
-        setOllamaStatus({ available: false, models: [] })
+
+    let cancelled = false;
+    void (async () => {
+      const creds = await api.getJiraCredentials();
+      let mcp: McpServerConfig = { command: "", args: [], env: {} };
+      try {
+        mcp = await api.getMcpConfig();
+      } catch {
+        /* no saved MCP config */
+      }
+      if (cancelled) return;
+
+      const jiraData = creds ?? { site_url: "", email: "", api_token: "" };
+      setJira(jiraData);
+      setMcpConfig(mcp);
+      setBaseline(
+        createSettingsBaseline(useAppStore.getState().settings, jiraData, mcp)
       );
-    }
-  }, [s.local_ai_enabled, locked, s.mcp_enabled]);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!s.local_ai_enabled || locked) return;
+    api.checkOllama().then(setOllamaStatus).catch(() =>
+      setOllamaStatus({ available: false, models: [] })
+    );
+  }, [s.local_ai_enabled, locked]);
 
   const update = (patch: Partial<typeof settings>) => {
     setSettings(withDefaultIntegrations({ ...settings, ...patch }));
@@ -142,7 +171,7 @@ export function Settings() {
     );
   };
 
-  const save = async () => {
+  const save = useCallback(async (): Promise<boolean> => {
     setSaving(true);
     setSaveError(null);
     try {
@@ -153,6 +182,7 @@ export function Settings() {
         await api.saveMcpConfig(mcpConfig);
       }
 
+      let savedJira = jira;
       if (toSave.jira_enabled && !toSave.local_only_mode) {
         const siteUrl = jira.site_url.trim().replace(/\/+$/, "");
         const email = jira.email.trim();
@@ -163,19 +193,54 @@ export function Settings() {
           throw new Error("Jira requires Site URL, email, and API token.");
         }
         if (hasAll) {
-          await api.saveJiraCredentials({ site_url: siteUrl, email, api_token: token });
-          setJira({ site_url: siteUrl, email, api_token: token });
+          savedJira = { site_url: siteUrl, email, api_token: token };
+          await api.saveJiraCredentials(savedJira);
+          setJira(savedJira);
         }
       }
 
+      setBaseline(createSettingsBaseline(toSave, savedJira, mcpConfig));
+      setSettingsDirty(false);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
+      return true;
     } catch (e) {
       setSaveError(String(e));
+      return false;
     } finally {
       setSaving(false);
     }
-  };
+  }, [settings, jira, mcpConfig, setSettingsDirty]);
+
+  const discard = useCallback(async () => {
+    const saved = withDefaultIntegrations(await api.getSettings());
+    setSettings(saved);
+
+    const creds = await api.getJiraCredentials();
+    const jiraData = creds ?? { site_url: "", email: "", api_token: "" };
+    setJira(jiraData);
+
+    let mcp: McpServerConfig = { command: "", args: [], env: {} };
+    try {
+      mcp = await api.getMcpConfig();
+    } catch {
+      /* no saved MCP config */
+    }
+    setMcpConfig(mcp);
+    setBaseline(createSettingsBaseline(saved, jiraData, mcp));
+    setSettingsDirty(false);
+    setSaveError(null);
+  }, [setSettings, setSettingsDirty]);
+
+  useEffect(() => {
+    if (!baseline) return;
+    setSettingsDirty(isSettingsDirty(settings, jira, mcpConfig, baseline));
+  }, [settings, jira, mcpConfig, baseline, setSettingsDirty]);
+
+  useEffect(() => {
+    setSettingsActions({ save, discard });
+    return () => setSettingsActions(null);
+  }, [save, discard, setSettingsActions]);
 
   const clearJira = async () => {
     await api.deleteJiraCredentials();
@@ -185,8 +250,12 @@ export function Settings() {
   const jiraConnected = !!(jira.site_url && jira.email && jira.api_token);
 
   return (
-    <div className={clsx(styles.page, "hide-scrollbar")}>
+    <div className={styles.page}>
       <div className={styles.inner}>
+        <button type="button" className={styles.backBtn} onClick={() => setView("notes")}>
+          <ArrowLeft size={16} />
+          Notes
+        </button>
         <header className={styles.header}>
           <h1 className={styles.title}>Settings</h1>
           <p className={styles.subtitle}>
@@ -629,7 +698,10 @@ export function Settings() {
           <p className={styles.shortcutsTitle}>Keyboard shortcuts</p>
           <div className={styles.shortcutGrid}>
             <span className={styles.shortcutItem}>
-              <kbd>⌘F</kbd> Search
+              <kbd>⌘K</kbd> Search notes
+            </span>
+            <span className={styles.shortcutItem}>
+              <kbd>⌘F</kbd> Find in note
             </span>
             <span className={styles.shortcutItem}>
               <kbd>⌘N</kbd> Quick capture

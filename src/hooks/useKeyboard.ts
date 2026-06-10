@@ -7,9 +7,13 @@ export function useKeyboard() {
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "f") {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
         setCommandPaletteOpen(true);
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === "f") {
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent("betternote:find-in-note"));
       }
       if ((e.metaKey || e.ctrlKey) && e.key === "n") {
         e.preventDefault();

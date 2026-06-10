@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useEditor, EditorContent } from "@tiptap/react";
 import { ArrowLeft, Bell, Lock } from "lucide-react";
 import clsx from "clsx";
@@ -6,9 +7,10 @@ import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
 import TaskList from "@tiptap/extension-task-list";
-import TaskItem from "@tiptap/extension-task-item";
+import { BetternoteTaskItem } from "../../extensions/BetternoteTaskItem";
 import type { Note, NoteColor, JiraIssue } from "../../types";
 import { AgentBlockExtension } from "../../extensions/AgentBlockExtension";
+import { FindInNoteExtension } from "../../extensions/FindInNoteExtension";
 import { FlatListItem } from "../../extensions/FlatListItem";
 import { JiraChipExtension } from "../../extensions/JiraChipExtension";
 import { NoNestedLists } from "../../extensions/NoNestedLists";
@@ -24,7 +26,10 @@ import {
 import { JiraCreateDialog } from "./JiraCreateDialog";
 import { JiraTicketPicker, type JiraPickerMode, type JiraPickerState } from "./JiraTicketPicker";
 import { getNoteColorStyle } from "../../lib/noteColors";
+import { findMatchesInNote } from "../../lib/findInNote";
 import { findNoteByTitle, getBacklinks } from "../../lib/noteLinks";
+import { positionMenuInViewport } from "../../lib/menuPosition";
+import { noAutocorrectAttrs, noAutocorrectProps } from "../../lib/noAutocorrect";
 import { openExternal } from "../../lib/openExternal";
 import {
   isJiraEnabled,
@@ -32,9 +37,12 @@ import {
   isMcpEnabled,
 } from "../../lib/integrations";
 import { useAppStore } from "../../store/appStore";
+import { PromptDialog } from "../ui/Dialog";
 import { NoteEmptyState } from "./NoteEmptyState";
 import { NoteToolbar } from "./NoteToolbar";
 import { ReminderBadge } from "./ReminderBadge";
+import { FindInNoteBar, scrollToFindMatch } from "./FindInNoteBar";
+import { SelectionFormatBar } from "./SelectionFormatBar";
 import styles from "./NoteEditor.module.css";
 
 interface NoteEditorProps {
@@ -68,7 +76,6 @@ const CORE_SLASH_ITEMS: SlashItem[] = [
   { title: "Bullet list", command: "bullet" },
   { title: "Numbered list", command: "ordered" },
   { title: "To-do list", command: "todo" },
-  { title: "Wiki link", command: "wikilink" },
   { title: "Reminder", command: "reminder" },
 ];
 
@@ -105,7 +112,8 @@ export function NoteEditor({
   const [title, setTitle] = useState("");
   const [showSlash, setShowSlash] = useState(false);
   const [slashFilter, setSlashFilter] = useState("");
-  const [slashPos, setSlashPos] = useState({ top: 0, left: 0 });
+  const [slashAnchor, setSlashAnchor] = useState({ top: 0, bottom: 0, left: 0 });
+  const [slashMenuPos, setSlashMenuPos] = useState({ top: 0, left: 0 });
   const [slashIndex, setSlashIndex] = useState(0);
   const [showWiki, setShowWiki] = useState(false);
   const [wikiFilter, setWikiFilter] = useState("");
@@ -116,6 +124,12 @@ export function NoteEditor({
     y: number;
     text: string;
   } | null>(null);
+  const [formatBar, setFormatBar] = useState<{ x: number; y: number } | null>(null);
+  const [linkDialogOpen, setLinkDialogOpen] = useState(false);
+  const [findOpen, setFindOpen] = useState(false);
+  const [findQuery, setFindQuery] = useState("");
+  const [findIndex, setFindIndex] = useState(0);
+  const [editorTick, setEditorTick] = useState(0);
   const [jiraCreateOpen, setJiraCreateOpen] = useState(false);
   const [jiraCreateSummary, setJiraCreateSummary] = useState("");
   const [jiraPicker, setJiraPicker] = useState<JiraPickerState | null>(null);
@@ -152,22 +166,29 @@ export function NoteEditor({
       Placeholder.configure({
         placeholder: mcpEnabled
           ? jiraEnabled
-            ? "Type / for commands: headings, lists, wiki links, agent, Jira…"
-            : "Type / for commands: headings, lists, wiki links, agent…"
+            ? "Type / for commands: headings, lists, agent, Jira…"
+            : "Type / for commands: headings, lists, agent…"
           : jiraEnabled
-            ? "Type / for commands: headings, lists, wiki links, Jira…"
-            : "Type / for commands: headings, lists, wiki links, reminders…",
+            ? "Type / for commands: headings, lists, Jira…"
+            : "Type / for commands: headings, lists, reminders…",
         showOnlyCurrent: true,
       }),
       TaskList,
-      TaskItem.configure({ nested: false }),
+      BetternoteTaskItem.configure({ nested: false }),
       WikiLinkExtension,
       JiraChipExtension,
+      FindInNoteExtension,
       ...(mcpEnabled ? [AgentBlockExtension] : []),
     ],
     [mcpEnabled, jiraEnabled]
   );
   const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const noteBodyRef = useRef<HTMLDivElement>(null);
+  const titleInputRef = useRef<HTMLInputElement>(null);
+  const noteRef = useRef(note);
+  const titleRef = useRef(title);
+  noteRef.current = note;
+  titleRef.current = title;
   const slashRef = useRef<HTMLDivElement>(null);
   const wikiRef = useRef<HTMLDivElement>(null);
   const selectionMenuRef = useRef<HTMLDivElement>(null);
@@ -180,11 +201,15 @@ export function NoteEditor({
     extensions: editorExtensions,
     content: "",
     editable: !isLocked,
+    editorProps: {
+      attributes: noAutocorrectAttrs,
+    },
     onUpdate: ({ editor: ed }) => {
-      if (!note || isLocked) return;
+      const currentNote = noteRef.current;
+      if (!currentNote || isLocked) return;
       clearTimeout(saveTimer.current);
       saveTimer.current = setTimeout(() => {
-        onUpdate(note.id, title, ed.getHTML());
+        onUpdate(currentNote.id, titleRef.current, ed.getHTML());
       }, 500);
 
       const { from } = ed.state.selection;
@@ -206,7 +231,8 @@ export function NoteEditor({
         setShowSlash(true);
         setSlashFilter(slashMatch[1]);
         const coords = ed.view.coordsAtPos(from);
-        setSlashPos({ top: coords.bottom + 4, left: coords.left });
+        setSlashAnchor({ top: coords.top, bottom: coords.bottom, left: coords.left });
+        setSlashMenuPos({ top: coords.bottom + 4, left: coords.left });
       } else {
         setShowSlash(false);
       }
@@ -221,9 +247,62 @@ export function NoteEditor({
   }, [editor, isLocked]);
 
   useEffect(() => {
+    if (!editor) return;
+    const refresh = () => setEditorTick((t) => t + 1);
+    editor.on("update", refresh);
+    return () => {
+      editor.off("update", refresh);
+    };
+  }, [editor]);
+
+  useEffect(() => {
     if (!note) return;
     setTitle(note.title);
   }, [note?.id, note?.title]);
+
+  useEffect(() => {
+    clearTimeout(saveTimer.current);
+    noteBodyRef.current?.scrollTo({ top: 0 });
+    setFindOpen(false);
+    setFindQuery("");
+    setFindIndex(0);
+    editor?.commands.clearFindInNote();
+  }, [note?.id, editor]);
+
+  const findMatches = useMemo(() => {
+    if (!editor || !findQuery.trim()) return [];
+    return findMatchesInNote(title, editor.state.doc, findQuery);
+  }, [editor, findQuery, title, editorTick]);
+
+  useEffect(() => {
+    if (!editor || !findOpen) {
+      editor?.commands.clearFindInNote();
+      return;
+    }
+    editor.commands.setFindInNote(findQuery, findIndex, title);
+  }, [editor, findOpen, findQuery, findIndex, title]);
+
+  useEffect(() => {
+    if (!findOpen || !editor || !findQuery.trim()) return;
+    const matches = findMatchesInNote(title, editor.state.doc, findQuery);
+    if (matches.length === 0) return;
+    const index = Math.min(findIndex, matches.length - 1);
+    scrollToFindMatch(matches[index], editor, titleInputRef, noteBodyRef);
+  }, [findOpen, findIndex, findQuery, editor, title]);
+
+  useEffect(() => {
+    if (!note || isLocked) return;
+    const openFind = () => setFindOpen(true);
+    window.addEventListener("betternote:find-in-note", openFind);
+    return () => window.removeEventListener("betternote:find-in-note", openFind);
+  }, [note, isLocked]);
+
+  const closeFind = useCallback(() => {
+    setFindOpen(false);
+    setFindQuery("");
+    setFindIndex(0);
+    editor?.commands.clearFindInNote();
+  }, [editor]);
 
   // Only reload editor body when switching notes or lock state, not on autosave echoes.
   useEffect(() => {
@@ -306,8 +385,32 @@ export function NoteEditor({
 
   useEffect(() => {
     if (!editor || isLocked) return;
+
+    const updateFormatBar = () => {
+      const { from, to } = editor.state.selection;
+      if (from === to) {
+        setFormatBar(null);
+        return;
+      }
+      const text = editor.state.doc.textBetween(from, to, " ");
+      if (!text.trim()) {
+        setFormatBar(null);
+        return;
+      }
+      const start = editor.view.coordsAtPos(from);
+      const end = editor.view.coordsAtPos(to);
+      setFormatBar({
+        x: (start.left + end.right) / 2,
+        y: start.top,
+      });
+    };
+
+    editor.on("selectionUpdate", updateFormatBar);
+    editor.on("focus", updateFormatBar);
+
     const dom = editor.view.dom;
     const onContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
       const { from, to } = editor.state.selection;
       if (from === to) {
         setSelectionMenu(null);
@@ -318,12 +421,18 @@ export function NoteEditor({
         setSelectionMenu(null);
         return;
       }
-      e.preventDefault();
-      setSelectionMenu({ x: e.clientX, y: e.clientY, text });
+      if (localAiEnabled || jiraEnabled) {
+        setSelectionMenu({ x: e.clientX, y: e.clientY, text });
+      }
     };
     dom.addEventListener("contextmenu", onContextMenu);
-    return () => dom.removeEventListener("contextmenu", onContextMenu);
-  }, [editor, isLocked]);
+
+    return () => {
+      editor.off("selectionUpdate", updateFormatBar);
+      editor.off("focus", updateFormatBar);
+      dom.removeEventListener("contextmenu", onContextMenu);
+    };
+  }, [editor, isLocked, localAiEnabled, jiraEnabled]);
 
   useEffect(() => {
     if (!editor) return;
@@ -528,9 +637,6 @@ export function NoteEditor({
         case "todo":
           if (listCtx !== "task") editor.chain().focus().toggleTaskList().run();
           break;
-        case "wikilink":
-          editor.chain().focus().insertContent("[[").run();
-          break;
         case "ticket":
           void openJiraPicker("single");
           return;
@@ -678,6 +784,18 @@ export function NoteEditor({
     setSlashIndex(0);
   }, [slashFilter, showSlash]);
 
+  useLayoutEffect(() => {
+    if (!showSlash || !slashRef.current) return;
+    const menu = slashRef.current;
+    const next = positionMenuInViewport(slashAnchor, {
+      width: menu.offsetWidth,
+      height: menu.offsetHeight,
+    });
+    setSlashMenuPos((prev) =>
+      prev.top === next.top && prev.left === next.left ? prev : next
+    );
+  }, [showSlash, slashAnchor, filteredItems.length, slashFilter]);
+
   useEffect(() => {
     wikiIndexRef.current = 0;
     setWikiIndex(0);
@@ -749,6 +867,20 @@ export function NoteEditor({
 
   return (
     <div className={styles.editor}>
+      {!isLocked && (
+        <FindInNoteBar
+          open={findOpen}
+          query={findQuery}
+          matches={findMatches}
+          activeIndex={findIndex}
+          onQueryChange={(q) => {
+            setFindQuery(q);
+            setFindIndex(0);
+          }}
+          onActiveIndexChange={setFindIndex}
+          onClose={closeFind}
+        />
+      )}
       {isLocked && (
         <div className={styles.lockOverlay}>
           <Lock size={32} />
@@ -770,11 +902,13 @@ export function NoteEditor({
           All notes
         </button>
       )}
-      <div className={styles.noteBody} style={noteColorStyle}>
+      <div ref={noteBodyRef} className={styles.noteBody} style={noteColorStyle}>
         <div className={styles.titleRow}>
           <input
+            ref={titleInputRef}
             className={styles.titleInput}
             placeholder="Note title"
+            {...noAutocorrectProps}
             value={title}
             disabled={isLocked}
             onChange={(e) => {
@@ -818,33 +952,36 @@ export function NoteEditor({
         </aside>
       )}
 
-      {showSlash && filteredItems.length > 0 && (
-        <div
-          ref={slashRef}
-          className={styles.slashMenu}
-          style={{ top: slashPos.top, left: slashPos.left }}
-        >
-          {filteredItems.map((item, index) => (
-            <button
-              key={item.command}
-              className={clsx(
-                styles.slashItem,
-                index === slashIndex && styles.slashItemActive
-              )}
-              onMouseEnter={() => {
-                slashIndexRef.current = index;
-                setSlashIndex(index);
-              }}
-              onMouseDown={(e) => {
-                e.preventDefault();
-                executeSlash(item.command);
-              }}
-            >
-              {item.title}
-            </button>
-          ))}
-        </div>
-      )}
+      {showSlash &&
+        filteredItems.length > 0 &&
+        createPortal(
+          <div
+            ref={slashRef}
+            className={styles.slashMenu}
+            style={{ top: slashMenuPos.top, left: slashMenuPos.left }}
+          >
+            {filteredItems.map((item, index) => (
+              <button
+                key={item.command}
+                className={clsx(
+                  styles.slashItem,
+                  index === slashIndex && styles.slashItemActive
+                )}
+                onMouseEnter={() => {
+                  slashIndexRef.current = index;
+                  setSlashIndex(index);
+                }}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  executeSlash(item.command);
+                }}
+              >
+                {item.title}
+              </button>
+            ))}
+          </div>,
+          document.body
+        )}
 
       {!isLocked && (
         <NoteToolbar
@@ -858,7 +995,37 @@ export function NoteEditor({
         />
       )}
 
-      {selectionMenu && (
+      {!isLocked && formatBar && editor && (
+        <SelectionFormatBar
+          editor={editor}
+          position={formatBar}
+          onLink={() => setLinkDialogOpen(true)}
+        />
+      )}
+
+      <PromptDialog
+        open={linkDialogOpen}
+        title="Add link"
+        label="URL"
+        defaultValue={
+          editor?.isActive("link")
+            ? (editor.getAttributes("link").href as string) || "https://"
+            : "https://"
+        }
+        confirmLabel="Apply"
+        onConfirm={(url) => {
+          if (!editor) return;
+          let href = url.trim();
+          if (!/^https?:\/\//i.test(href) && !/^mailto:/i.test(href)) {
+            href = `https://${href}`;
+          }
+          editor.chain().focus().extendMarkRange("link").setLink({ href }).run();
+          setLinkDialogOpen(false);
+        }}
+        onCancel={() => setLinkDialogOpen(false)}
+      />
+
+      {selectionMenu && (localAiEnabled || jiraEnabled) && (
         <div
           ref={selectionMenuRef}
           className={styles.slashMenu}

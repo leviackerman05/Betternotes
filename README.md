@@ -14,7 +14,7 @@ Get the latest macOS build from [GitHub Releases](https://github.com/leviackerma
 
 - **Local notes**: workspaces, rich editor, tags, reminders, lock, export
 - **Wiki links & backlinks**: `[[Note title]]` linking between notes
-- **Quick capture**: `⌘N` or command palette (`⌘F`)
+- **Quick capture**: `⌘N` or command palette (`⌘K`)
 - **Search**: find notes by title or content
 - **Privacy first**: Local Only Mode blocks all network integrations by default
 - **Optional Local AI**: Ollama for summarize, rewrite, extract tasks, explain (opt-in)
@@ -59,7 +59,8 @@ Produces a `.dmg` in `src-tauri/target/release/bundle/macos/`.
 
 | Shortcut | Action |
 |----------|--------|
-| `⌘F` | Search notes & commands |
+| `⌘K` | Search notes & commands |
+| `⌘F` | Find in note |
 | `⌘N` | Quick capture: new note |
 | `G` then `N` | Go to Notes |
 | `G` then `S` | Go to Settings |

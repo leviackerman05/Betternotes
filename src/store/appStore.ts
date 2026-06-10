@@ -2,6 +2,11 @@ import { create } from "zustand";
 import type { AppSettings, AppView, Folder, Note, NotesCollection, Tag, Task } from "../types";
 import { DEFAULT_INTEGRATIONS } from "../lib/integrations";
 
+export interface SettingsActions {
+  save: () => Promise<boolean>;
+  discard: () => Promise<void>;
+}
+
 interface AppState {
   view: AppView;
   selectedNoteId: string | null;
@@ -20,8 +25,15 @@ interface AppState {
   notesPane: "editor" | "graph";
   pendingWikiLink: string | null;
   pendingSprint: boolean;
+  settingsDirty: boolean;
+  pendingView: AppView | null;
+  settingsActions: SettingsActions | null;
 
   setView: (view: AppView) => void;
+  setSettingsDirty: (dirty: boolean) => void;
+  setSettingsActions: (actions: SettingsActions | null) => void;
+  clearPendingView: () => void;
+  completePendingNavigation: () => void;
   setSelectedNoteId: (id: string | null) => void;
   setSelectedFolderId: (id: string | null) => void;
   setTasks: (tasks: Task[]) => void;
@@ -48,7 +60,7 @@ const defaultSettings: AppSettings = {
   ...DEFAULT_INTEGRATIONS,
 };
 
-export const useAppStore = create<AppState>((set) => ({
+export const useAppStore = create<AppState>((set, get) => ({
   view: "notes",
   selectedNoteId: null,
   selectedFolderId: null,
@@ -66,8 +78,26 @@ export const useAppStore = create<AppState>((set) => ({
   notesPane: "editor",
   pendingWikiLink: null,
   pendingSprint: false,
+  settingsDirty: false,
+  pendingView: null,
+  settingsActions: null,
 
-  setView: (view) => set({ view }),
+  setView: (view) => {
+    const state = get();
+    if (state.view === "settings" && view !== "settings" && state.settingsDirty) {
+      set({ pendingView: view });
+      return;
+    }
+    set({ view });
+  },
+  setSettingsDirty: (dirty) => set({ settingsDirty: dirty }),
+  setSettingsActions: (actions) => set({ settingsActions: actions }),
+  clearPendingView: () => set({ pendingView: null }),
+  completePendingNavigation: () => {
+    const pending = get().pendingView;
+    if (!pending) return;
+    set({ view: pending, pendingView: null, settingsDirty: false });
+  },
   setSelectedNoteId: (id) => set({ selectedNoteId: id }),
   setSelectedFolderId: (id) => set({ selectedFolderId: id }),
   setTasks: (tasks) => set({ tasks }),

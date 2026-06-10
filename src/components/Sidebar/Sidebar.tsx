@@ -18,6 +18,7 @@ import clsx from "clsx";
 import { useAppStore } from "../../store/appStore";
 import { useTheme } from "../../hooks/useTheme";
 import { isJiraEnabled, jiraSectionTitle } from "../../lib/integrations";
+import { noAutocorrectProps } from "../../lib/noAutocorrect";
 import type { AppView, NotesCollection } from "../../types";
 import { JiraIcon } from "../Settings/IntegrationIcons";
 import styles from "./Sidebar.module.css";
@@ -86,6 +87,7 @@ export function Sidebar({
         <input
           className={styles.searchInput}
           placeholder="Search notes…"
+          {...noAutocorrectProps}
           value={paletteQuery}
           onChange={(e) => {
             setPaletteQuery(e.target.value);
@@ -93,7 +95,7 @@ export function Sidebar({
           }}
           onFocus={() => setCommandPaletteOpen(true)}
         />
-        <kbd className={styles.searchKbd}>⌘F</kbd>
+        <kbd className={styles.searchKbd}>⌘K</kbd>
       </div>
 
       <nav className={styles.navSection}>

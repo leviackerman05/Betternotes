@@ -65,7 +65,7 @@ export function CollapsedRail({
       <button
         className={styles.btn}
         onClick={() => setCommandPaletteOpen(true)}
-        title="Search notes (⌘F)"
+        title="Search notes (⌘K)"
       >
         <Search size={18} />
       </button>

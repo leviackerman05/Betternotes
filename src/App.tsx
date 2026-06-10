@@ -13,7 +13,12 @@ import type { NoteMenuActions } from "./components/Notes/NoteContextMenu";
 import { CommandPalette } from "./components/CommandPalette/CommandPalette";
 import { Settings } from "./components/Settings/Settings";
 import { TaskList } from "./components/Tasks/TaskList";
-import { ConfirmDialog, PasswordDialog, PromptDialog } from "./components/ui/Dialog";
+import {
+  ConfirmDialog,
+  PasswordDialog,
+  PromptDialog,
+  UnsavedChangesDialog,
+} from "./components/ui/Dialog";
 import { api } from "./lib/api";
 import { isJiraEnabled, withDefaultIntegrations } from "./lib/integrations";
 import {
@@ -77,6 +82,11 @@ function App() {
   const [showReminder, setShowReminder] = useState(false);
   const [showTagPicker, setShowTagPicker] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState(false);
+  const [fetchedSelectedNote, setFetchedSelectedNote] = useState<Note | null>(null);
+  const [leaveSaving, setLeaveSaving] = useState(false);
+  const pendingView = useAppStore((s) => s.pendingView);
+  const settingsActions = useAppStore((s) => s.settingsActions);
+  const completePendingNavigation = useAppStore((s) => s.completePendingNavigation);
 
   useTheme();
   useKeyboard();
@@ -171,7 +181,26 @@ function App() {
     await refreshTasks();
   }, [refreshTasks]);
 
-  const selectedNote = notes.find((n) => n.id === selectedNoteId) ?? null;
+  useEffect(() => {
+    if (!selectedNoteId) {
+      setFetchedSelectedNote(null);
+      return;
+    }
+    if (notes.some((n) => n.id === selectedNoteId)) {
+      setFetchedSelectedNote(null);
+      return;
+    }
+    let cancelled = false;
+    void api.getNote(selectedNoteId).then((note) => {
+      if (!cancelled) setFetchedSelectedNote(note);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedNoteId, notes]);
+
+  const selectedNote =
+    notes.find((n) => n.id === selectedNoteId) ?? fetchedSelectedNote;
   const activeWorkspace = folders.find((f) => f.id === selectedFolderId) ?? null;
 
   const collectionTitle = useMemo(() => {
@@ -561,6 +590,25 @@ function App() {
         {view === "settings" && <Settings />}
       </main>
       <CommandPalette onAddNote={handleAddNote} />
+
+      <UnsavedChangesDialog
+        open={pendingView !== null}
+        saving={leaveSaving}
+        onDiscard={async () => {
+          await settingsActions?.discard();
+          completePendingNavigation();
+        }}
+        onSave={async () => {
+          if (!settingsActions) return;
+          setLeaveSaving(true);
+          try {
+            const ok = await settingsActions.save();
+            if (ok) completePendingNavigation();
+          } finally {
+            setLeaveSaving(false);
+          }
+        }}
+      />
 
       <PromptDialog
         open={dialog?.type === "workspace-create"}

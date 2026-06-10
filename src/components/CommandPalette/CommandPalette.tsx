@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Search } from "lucide-react";
 import clsx from "clsx";
 import { api } from "../../lib/api";
+import { noAutocorrectProps } from "../../lib/noAutocorrect";
 import { useAppStore } from "../../store/appStore";
 import type { Note } from "../../types";
 import styles from "./CommandPalette.module.css";
@@ -34,6 +35,7 @@ export function CommandPalette({ onAddNote }: CommandPaletteProps) {
   const setView = useAppStore((s) => s.setView);
   const setSelectedNoteId = useAppStore((s) => s.setSelectedNoteId);
   const setSelectedFolderId = useAppStore((s) => s.setSelectedFolderId);
+  const setNotesCollection = useAppStore((s) => s.setNotesCollection);
   const setNotesPane = useAppStore((s) => s.setNotesPane);
   const folders = useAppStore((s) => s.folders);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -93,6 +95,7 @@ export function CommandPalette({ onAddNote }: CommandPaletteProps) {
           sublabel: folderName(note.folder_id),
           group: "Notes",
           action: () => {
+            setNotesCollection("workspace");
             if (note.folder_id) setSelectedFolderId(note.folder_id);
             setSelectedNoteId(note.id);
             setNotesPane("editor");
@@ -109,6 +112,7 @@ export function CommandPalette({ onAddNote }: CommandPaletteProps) {
     commands,
     folderName,
     setSelectedFolderId,
+    setNotesCollection,
     setSelectedNoteId,
     setNotesPane,
     setView,
@@ -175,12 +179,13 @@ export function CommandPalette({ onAddNote }: CommandPaletteProps) {
             ref={inputRef}
             className={styles.searchInput}
             placeholder="Search notes and commands…"
+            {...noAutocorrectProps}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
-          <kbd className={styles.kbd}>⌘F</kbd>
+          <kbd className={styles.kbd}>⌘K</kbd>
         </div>
-        <div className={clsx(styles.results, "hide-scrollbar")}>
+        <div className={styles.results}>
           {groups.map((group) => (
             <div key={group}>
               <p className={styles.groupLabel}>{group}</p>
